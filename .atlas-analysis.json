@@ -1,0 +1,122 @@
+{
+  "projectType": "saas",
+  "projectName": "CALMA",
+  "projectDescription": "A healthcare employment platform connecting healthcare professionals with employers, featuring real-time communication, patient record management, and job matching.",
+  "theme": "almond",
+  "primaryColor": "#1e3a8a",
+  "lightColor": "#3b82f6",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "features"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/job-seekers",
+              "guides/employers",
+              "guides/authentication"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/cv-management",
+              "features/job-posting",
+              "features/applications",
+              "features/messaging",
+              "features/video-calls",
+              "features/patient-records",
+              "features/ratings"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/users",
+              "api/jobs",
+              "api/applications",
+              "api/chat",
+              "api/notifications",
+              "api/cv",
+              "api/patients"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Components",
+        "groups": [
+          {
+            "group": "Aspirante Module",
+            "pages": [
+              "components/aspirante/overview",
+              "components/aspirante/cv",
+              "components/aspirante/applications"
+            ]
+          },
+          {
+            "group": "Contratante Module",
+            "pages": [
+              "components/contratante/overview",
+              "components/contratante/job-posting",
+              "components/contratante/candidates"
+            ]
+          },
+          {
+            "group": "Shared Components",
+            "pages": [
+              "components/shared/chat",
+              "components/shared/notifications",
+              "components/shared/forms"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Dual user roles: Job Seekers (Aspirantes) and Employers (Contratantes)",
+    "Comprehensive CV/Resume builder with certificates and recommendations",
+    "Job posting and application management system",
+    "Real-time chat with WebSocket integration",
+    "Video calling capabilities",
+    "Patient health record management (Fichas)",
+    "Rating and qualification system",
+    "Real-time notification system",
+    "Advanced job matching and filtering"
+  ],
+  "publicApiSurface": [
+    "/api/usuarios - User management endpoints",
+    "/api/postulacion - Job application endpoints",
+    "/api/chat - Real-time messaging endpoints",
+    "/api/notificaciones - Notification management",
+    "/api/cv - CV and resume management",
+    "/api/trabajos - Job posting endpoints",
+    "/api/calificaciones - Rating system endpoints",
+    "/api/pacientes - Patient record management",
+    "WebSocket /ws - Real-time communication channel",
+    "React Router routes for SPA navigation"
+  ]
+}
