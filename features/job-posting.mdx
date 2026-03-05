@@ -1,0 +1,378 @@
+---
+title: Job Posting
+description: Create and manage job opportunities for healthcare professionals
+---
+
+## Overview
+
+The job posting system in CALMA enables employers (Contratantes) to create, publish, and manage job opportunities. The system includes comprehensive form fields, location-based filtering, and application management.
+
+## Job Posting Form
+
+Location: `src/components/ModuloContratante/FormularioPublicacion/formularioPublicacion.jsx`
+
+### Creating a Job Post
+
+<Steps>
+  <Step title="Access Job Posting">
+    Navigate to the employer dashboard and click "Nueva Publicación"
+  </Step>
+  
+  <Step title="Fill Job Details">
+    Enter job title, description, requirements, and compensation
+  </Step>
+  
+  <Step title="Set Location">
+    Select province, canton, and parish for the job location
+  </Step>
+  
+  <Step title="Configure Settings">
+    Set application deadline, job type, and additional preferences
+  </Step>
+  
+  <Step title="Publish">
+    Review and publish the job posting
+  </Step>
+</Steps>
+
+## Form Fields
+
+The job posting form includes the following fields:
+
+```javascript
+// Job posting structure
+{
+  titulo: string,              // Job title
+  descripcion: string,         // Detailed description
+  requisitos: string,          // Requirements
+  salario: number,            // Salary/compensation
+  tipo_contrato: string,      // Contract type
+  jornada: string,            // Work schedule
+  fecha_inicio: date,         // Start date
+  fecha_fin: date,            // Application deadline
+  id_provincia: number,       // Province ID
+  id_canton: number,          // Canton ID
+  id_parroquia: number,       // Parish ID
+  estado: string              // Status (Activo, Cerrado)
+}
+```
+
+### Required Fields
+
+<ParamField path="titulo" type="string" required>
+  Job title (e.g., "Enfermera General", "Cuidador de Adulto Mayor")
+</ParamField>
+
+<ParamField path="descripcion" type="string" required>
+  Detailed job description including responsibilities and expectations
+</ParamField>
+
+<ParamField path="requisitos" type="string" required>
+  Required qualifications, experience, and certifications
+</ParamField>
+
+<ParamField path="salario" type="number" required>
+  Compensation amount in USD
+</ParamField>
+
+<ParamField path="id_provincia" type="number" required>
+  Province where the job is located
+</ParamField>
+
+### Optional Fields
+
+<ParamField path="tipo_contrato" type="string">
+  Contract type: Tiempo completo, Medio tiempo, Por horas, Temporal
+</ParamField>
+
+<ParamField path="jornada" type="string">
+  Work schedule: Diurno, Nocturno, Mixto, Rotativo
+</ParamField>
+
+<ParamField path="fecha_fin" type="date">
+  Application deadline
+</ParamField>
+
+## Location Cascade
+
+The location selection uses a three-level cascade:
+
+```javascript
+// Province → Canton → Parish cascade
+const [provincias, setProvincias] = useState([]);
+const [cantones, setCantones] = useState([]);
+const [parroquias, setParroquias] = useState([]);
+
+// Load cantones when province changes
+useEffect(() => {
+  if (selectedProvincia) {
+    axios.get(`${API_URL}/api/cantones/provincia/${selectedProvincia}`)
+      .then(res => setCantones(res.data));
+  }
+}, [selectedProvincia]);
+
+// Load parroquias when canton changes
+useEffect(() => {
+  if (selectedCanton) {
+    axios.get(`${API_URL}/api/parroquias/canton/${selectedCanton}`)
+      .then(res => setParroquias(res.data));
+  }
+}, [selectedCanton]);
+```
+
+### Location Services
+
+Three service files handle geographic data:
+
+<CodeGroup>
+```javascript provinciaService.js
+export const getAllProvincias = () => {
+  return axios.get(`${API_URL}/api/provincias`);
+};
+```
+
+```javascript cantonService.js
+export const getCantonesByProvincia = (provinciaId) => {
+  return axios.get(`${API_URL}/api/cantones/provincia/${provinciaId}`);
+};
+```
+
+```javascript parroquiaService.js
+export const getParroquiasByCanton = (cantonId) => {
+  return axios.get(`${API_URL}/api/parroquias/canton/${cantonId}`);
+};
+```
+</CodeGroup>
+
+## Job Listings
+
+Location: `src/components/ModuloContratante/ListaPublicaciones/listaPublicaciones.jsx`
+
+### Viewing Job Posts
+
+Employers can view all their published jobs in a list view:
+
+```javascript
+// Navigate to job listings
+<Route path="/moduloContratante/ListaPublicaciones" element={<ListaPublicaciones />} />
+```
+
+### Job Card Features
+
+<CardGroup cols={2}>
+  <Card title="Edit Job" icon="pen-to-square">
+    Update job details, requirements, or status
+  </Card>
+  <Card title="View Applications" icon="users">
+    See all candidates who applied
+  </Card>
+  <Card title="Close Posting" icon="circle-xmark">
+    Mark the job as no longer accepting applications
+  </Card>
+  <Card title="Delete Job" icon="trash">
+    Permanently remove the job posting
+  </Card>
+</CardGroup>
+
+## Job Discovery (Aspirante Side)
+
+Location: `src/components/ModuloAspirante/ListaTrabajos/listaTrabajos.jsx`
+
+Job seekers can browse available opportunities with filtering:
+
+### Filtering Options
+
+```javascript
+// Job filtering capabilities
+const filters = {
+  location: {               // Filter by location
+    provincia: string,
+    canton: string,
+    parroquia: string
+  },
+  salary: {                // Salary range
+    min: number,
+    max: number
+  },
+  contractType: string,   // Contract type filter
+  schedule: string,       // Work schedule filter
+  keywords: string        // Search by keywords
+};
+```
+
+### Job Card Display
+
+Each job card shows:
+- Job title and employer name
+- Location (Provincia, Canton, Parroquia)
+- Salary range
+- Contract type and schedule
+- Application deadline
+- Quick apply button
+
+## Application Flow
+
+When a job seeker applies:
+
+<Steps>
+  <Step title="Browse Jobs">
+    View available jobs in ListaTrabajos component
+  </Step>
+  
+  <Step title="Click Apply">
+    Click the "Postular" button on a job card
+  </Step>
+  
+  <Step title="Confirm Application">
+    Review job details and confirm application
+  </Step>
+  
+  <Step title="Application Submitted">
+    Application is sent to employer and appears in "Mis Postulaciones"
+  </Step>
+  
+  <Step title="Track Status">
+    Monitor application status (Pendiente, Aceptada, Rechazada)
+  </Step>
+</Steps>
+
+## Job Details View
+
+Location: `src/components/ModuloContratante/DetallesTrabajo/DetallesTrabajo.jsx`
+
+Detailed view of a specific job posting:
+
+```javascript
+// Access job details
+<Route path="/detalles-trabajo/:idRealizar" element={<DetallesTrabajo />} />
+```
+
+### Information Displayed
+
+- Complete job description
+- Full requirements list
+- Compensation details
+- Location information
+- Number of applications received
+- Application deadline
+- Job status
+
+## API Integration
+
+### Job Endpoints
+
+<ResponseField name="POST /api/trabajos" type="object">
+  Create a new job posting
+  
+  <Expandable title="Request Body">
+    <ParamField path="titulo" type="string" required>
+      Job title
+    </ParamField>
+    <ParamField path="descripcion" type="string" required>
+      Job description
+    </ParamField>
+    <ParamField path="requisitos" type="string" required>
+      Requirements
+    </ParamField>
+    <ParamField path="salario" type="number" required>
+      Salary amount
+    </ParamField>
+    <ParamField path="id_provincia" type="number" required>
+      Province ID
+    </ParamField>
+    <ParamField path="idContratante" type="number" required>
+      Employer ID
+    </ParamField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="GET /api/trabajos/contratante/:id" type="array">
+  Get all jobs for a specific employer
+  
+  <Expandable title="Response">
+    Returns array of job objects with full details
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="GET /api/trabajos/activos" type="array">
+  Get all active job postings (for job seekers)
+  
+  <Expandable title="Response">
+    Returns array of active jobs with location details
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="PUT /api/trabajos/:id" type="object">
+  Update an existing job posting
+</ResponseField>
+
+<ResponseField name="DELETE /api/trabajos/:id" type="object">
+  Delete a job posting
+</ResponseField>
+
+## Validation
+
+The form includes client-side validation:
+
+```javascript
+// Validation checks
+const validateForm = () => {
+  if (!titulo || titulo.trim().length < 5) {
+    toast.error('El título debe tener al menos 5 caracteres');
+    return false;
+  }
+  
+  if (!descripcion || descripcion.trim().length < 20) {
+    toast.error('La descripción debe tener al menos 20 caracteres');
+    return false;
+  }
+  
+  if (!salario || salario <= 0) {
+    toast.error('Ingresa un salario válido');
+    return false;
+  }
+  
+  if (!id_provincia || !id_canton) {
+    toast.error('Selecciona la ubicación completa');
+    return false;
+  }
+  
+  return true;
+};
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Write clear job titles">
+    Use specific, searchable titles like "Enfermera de Cuidados Intensivos" rather than vague titles like "Personal de Salud".
+  </Accordion>
+  
+  <Accordion title="Detailed descriptions">
+    Include day-to-day responsibilities, work environment, team structure, and growth opportunities.
+  </Accordion>
+  
+  <Accordion title="Realistic requirements">
+    Only list essential requirements. Avoid creating barriers with unnecessary qualifications.
+  </Accordion>
+  
+  <Accordion title="Fair compensation">
+    Offer competitive salaries based on market rates for the position and location.
+  </Accordion>
+  
+  <Accordion title="Set reasonable deadlines">
+    Give candidates enough time to prepare applications (at least 1-2 weeks).
+  </Accordion>
+  
+  <Accordion title="Respond promptly">
+    Review applications quickly and provide feedback to candidates.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Job postings with complete information and competitive compensation receive 3x more qualified applications.
+</Note>
+
+<Warning>
+  Ensure all job information complies with labor laws and regulations in Ecuador.
+</Warning>

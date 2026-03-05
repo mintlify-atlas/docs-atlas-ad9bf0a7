@@ -1,0 +1,167 @@
+---
+title: 'Aspirante Module Overview'
+description: 'Architecture and routing for the job seeker module'
+---
+
+# Aspirante Module Overview
+
+The **ModuloAspirante** component serves as the main container for all job seeker (aspirante) functionality in the CALMA platform.
+
+## Component Location
+
+`src/components/ModuloAspirante/moduloAspirante.jsx`
+
+## Architecture
+
+### Core Structure
+
+```javascript
+const ModuloAspirante = () => {
+  const [idAspirante, setIdAspirante] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [mostrarInfo, setMostrarInfo] = useState(false);
+}
+```
+
+### State Management
+
+| State | Type | Purpose |
+|-------|------|--------|
+| `idAspirante` | number/null | Current aspirante ID from route or localStorage |
+| `userId` | number/null | Associated user ID for chat functionality |
+| `mostrarInfo` | boolean | Controls welcome modal visibility |
+
+## Routing Structure
+
+Defined in `main.jsx:80-96`:
+
+```javascript
+<Route path="/moduloAspirante/*" element={
+  <RequireCV>
+    <ModuloAspirante />
+  </RequireCV>
+}/>
+
+<Route path="/moduloAspirante/postulaciones/:userId" element={
+  <RequireCV>
+    <PostulacionesAspirante />
+  </RequireCV>
+}/>
+```
+
+### Protected Routes
+
+All aspirante routes are wrapped with `RequireCV` component to ensure users have completed their CV profile.
+
+## Key Features
+
+### 1. User Identification
+
+```javascript
+useEffect(() => {
+  const aspiranteIdFromState = location.state?.aspiranteId;
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const aspiranteId = aspiranteIdFromState || userData?.aspiranteId;
+  
+  setIdAspirante(aspiranteId);
+  
+  // Fetch associated userId
+  axios.get(`http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/buscar_aspirante/${aspiranteId}`)
+    .then(response => setUserId(response.data))
+}, [location.state]);
+```
+
+### 2. Welcome Modal
+
+Session-based modal shown once per user:
+
+```javascript
+useEffect(() => {
+  const STORAGE_KEY = `ventanaInfoMostrada_aspirante_${idAspirante}`;
+  const yaMostrada = sessionStorage.getItem(STORAGE_KEY);
+  
+  if (!yaMostrada) {
+    setMostrarInfo(true);
+    sessionStorage.setItem(STORAGE_KEY, 'true');
+  }
+}, [idAspirante]);
+```
+
+### 3. Component Composition
+
+```jsx
+<HeaderAspirante userId={userId} aspiranteId={idAspirante} />
+<main className="main-content">
+  <Routes>
+    <Route path="/" element={<ListaTrabajos idAspirante={idAspirante} />} />
+    <Route path="/trabajos" element={<ListaTrabajos idAspirante={idAspirante} />} />
+  </Routes>
+</main>
+```
+
+## Child Components
+
+### HeaderAspirante
+- Navigation bar for aspirante section
+- Receives `userId` for chat and `aspiranteId` for profile actions
+- Located at: `src/components/ModuloAspirante/HeaderAspirante/headerAspirante.jsx`
+
+### ListaTrabajos
+- Displays available job postings
+- Filtered by aspirante's profile
+- Located at: `src/components/ModuloAspirante/ListaTrabajos/listaTrabajos.jsx`
+
+## API Integration
+
+### Endpoints Used
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/usuarios/buscar_aspirante/{id}` | GET | Fetch userId from aspiranteId |
+
+## Storage Keys
+
+### sessionStorage
+- `ventanaInfoMostrada_aspirante_{id}` - Tracks welcome modal display
+
+### localStorage
+- `userData` - Contains `aspiranteId` and user info
+
+## Usage Example
+
+From `main.jsx`:
+
+```javascript
+import ModuloAspirante from './components/ModuloAspirante/moduloAspirante';
+
+// Protected route with CV requirement
+<Route
+  path="/moduloAspirante/*"
+  element={
+    <RequireCV>
+      <ModuloAspirante />
+    </RequireCV>
+  }
+/>
+```
+
+## Error Handling
+
+```javascript
+if (!idAspirante) return <div>Cargando datos del aspirante...</div>;
+if (!userId) return <div>Cargando datos del usuario para chat...</div>;
+```
+
+## Styling
+
+CSS file: `src/components/ModuloAspirante/moduloAspirante.css`
+
+Key classes:
+- `.main-content` - Main container with gradient background
+- `.ventana-informativa-aspirante` - Welcome modal overlay
+
+## Related Components
+
+- [CV Management](/components/aspirante/cv)
+- [Applications](/components/aspirante/applications)
+- [RequireCV](/components/shared/forms#requirecv)

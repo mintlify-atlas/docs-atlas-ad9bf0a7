@@ -1,0 +1,528 @@
+---
+title: 'CV Management API'
+description: 'Caregiver resume and CV management endpoints'
+icon: 'id-card'
+---
+
+## Overview
+
+The CV API manages caregiver resumes (CVs), including personal information, work experience, certifications, skills, and availability.
+
+## Base URL
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs
+```
+
+## Service Location
+
+**File:** `source/src/servicios/cvService.js:1`
+
+## Get All CVs
+
+### GET /api/cvs
+
+Retrieve all CVs in the system.
+
+```javascript
+import { getCVs } from './servicios/cvService';
+
+try {
+  const cvs = await getCVs();
+  console.log('All CVs:', cvs);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### Service Implementation
+
+```javascript
+export const getCVs = async () => {
+  try {
+    const response = await axios.get(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs'
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener todos los CVs:', error);
+    throw new Error('No se pudieron cargar los CVs');
+  }
+};
+```
+
+## Get CV by ID
+
+### GET /api/cvs/{id}
+
+Retrieve a specific CV by its ID.
+
+<CodeGroup>
+```javascript Service
+import { getCVById } from './servicios/cvService';
+
+try {
+  const cv = await getCVById(42);
+  console.log('CV Data:', cv);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+```javascript Implementation
+export const getCVById = async (id) => {
+  try {
+    console.log(`Obteniendo CV con ID: ${id}`);
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs/${id}`
+    );
+    console.log('Respuesta del servidor:', response);
+    return response.data;
+  } catch (error) {
+    console.error(`Error al obtener CV con ID ${id}:`, error);
+    
+    let errorMessage = 'Error al cargar el CV';
+    if (error.response) {
+      if (error.response.status === 404) {
+        errorMessage = 'El CV solicitado no existe';
+      } else if (error.response.status === 500) {
+        errorMessage = 'Error en el servidor al procesar tu solicitud';
+      }
+      console.error('Detalles del error:', error.response.data);
+    }
+    
+    throw new Error(errorMessage);
+  }
+};
+```
+
+```bash cURL
+curl 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs/42'
+```
+</CodeGroup>
+
+## Create CV
+
+### POST /api/cvs
+
+Create a new CV for a caregiver.
+
+```javascript
+import { createCV } from './servicios/cvService';
+
+const cvData = {
+  aspirante: { idAspirante: 15 },
+  resumen_profesional: 'Cuidador con 5 años de experiencia',
+  experiencia_laboral: '5 años en cuidado geriátrico',
+  educacion: 'Técnico en Enfermería',
+  habilidades: 'Primeros auxilios, cuidado de pacientes con Alzheimer',
+  certificaciones: 'Certificado en Primeros Auxilios',
+  referencias: 'Disponibles a solicitud'
+};
+
+try {
+  const newCV = await createCV(cvData);
+  console.log('CV created:', newCV);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### Service Implementation
+
+```javascript
+export const createCV = async (cvData) => {
+  try {
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs',
+      cvData
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al crear CV:', error);
+    throw new Error('No se pudo crear el CV');
+  }
+};
+```
+
+## Update CV
+
+### PUT /api/cvs/{id}
+
+Update an existing CV.
+
+```javascript
+import { updateCV } from './servicios/cvService';
+
+const updatedData = {
+  resumen_profesional: 'Cuidador especializado con 6 años de experiencia',
+  habilidades: 'Primeros auxilios, cuidado de pacientes con demencia, terapia ocupacional'
+};
+
+try {
+  const updated = await updateCV(42, updatedData);
+  console.log('CV updated:', updated);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### Service Implementation
+
+```javascript
+export const updateCV = async (id, cvData) => {
+  try {
+    const response = await axios.put(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs/${id}`,
+      cvData
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Error al actualizar CV con ID ${id}:`, error);
+    throw new Error('No se pudo actualizar el CV');
+  }
+};
+```
+
+## Delete CV
+
+### DELETE /api/cvs/{id}
+
+Delete a CV from the system.
+
+```javascript
+import { deleteCV } from './servicios/cvService';
+
+try {
+  await deleteCV(42);
+  console.log('CV deleted successfully');
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### Service Implementation
+
+```javascript
+export const deleteCV = async (id) => {
+  try {
+    await axios.delete(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs/${id}`
+    );
+  } catch (error) {
+    console.error(`Error al eliminar CV con ID ${id}:`, error);
+    throw new Error('No se pudo eliminar el CV');
+  }
+};
+```
+
+## Check if Aspirante Has CV
+
+### GET /api/cvs/existe-por-aspirante/{aspiranteId}
+
+Check if a caregiver has an existing CV.
+
+**Location:** `source/src/servicios/cvService.js:77`
+
+```javascript
+import { checkIfAspiranteHasCV } from './servicios/cvService';
+
+const hasCV = await checkIfAspiranteHasCV(15);
+if (hasCV) {
+  console.log('Aspirante already has a CV');
+} else {
+  console.log('No CV found for this aspirante');
+}
+```
+
+### Service Implementation
+
+```javascript
+export const checkIfAspiranteHasCV = async (aspiranteId) => {
+  try {
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs/existe-por-aspirante/${aspiranteId}`
+    );
+    return response.data === true; // Ensure boolean
+  } catch (error) {
+    console.error(`Error verificando CV para aspirante ${aspiranteId}:`, error);
+    return false;
+  }
+};
+```
+
+## Get CV by Aspirante ID
+
+### GET /api/cvs/por-aspirante/{aspiranteId}
+
+Retrieve a CV by the aspirante (caregiver) ID.
+
+**Location:** `source/src/servicios/cvService.js:87`
+
+```javascript
+import { getCVByAspiranteId } from './servicios/cvService';
+
+try {
+  const cv = await getCVByAspiranteId(15);
+  if (cv) {
+    console.log('CV found:', cv);
+  } else {
+    console.log('No CV found for this aspirante');
+  }
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### Service Implementation
+
+```javascript
+export const getCVByAspiranteId = async (aspiranteId) => {
+  try {
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cvs/por-aspirante/${aspiranteId}`
+    );
+    
+    // Validate response data
+    if (!response.data || !response.data.id_cv) {
+      console.log(`No se encontró CV para el aspirante ${aspiranteId}`);
+      return null;
+    }
+    
+    // Validate CV belongs to the requested aspirante
+    if (response.data.aspirante?.idAspirante?.toString() !== aspiranteId?.toString()) {
+      console.error('El CV no pertenece al aspirante solicitado');
+      return null;
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error(`Error al obtener CV para aspirante ${aspiranteId}:`, error);
+    throw new Error('Error al verificar el CV');
+  }
+};
+```
+
+## CV Data Structure
+
+<ResponseField name="id_cv" type="number">
+  Unique CV identifier
+</ResponseField>
+
+<ResponseField name="aspirante" type="object">
+  Reference to the caregiver
+  
+  <Expandable title="aspirante properties">
+    <ResponseField name="idAspirante" type="number">
+      Caregiver ID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="resumen_profesional" type="string">
+  Professional summary or objective
+</ResponseField>
+
+<ResponseField name="experiencia_laboral" type="string">
+  Work experience description
+</ResponseField>
+
+<ResponseField name="educacion" type="string">
+  Educational background
+</ResponseField>
+
+<ResponseField name="habilidades" type="string">
+  Skills and competencies
+</ResponseField>
+
+<ResponseField name="certificaciones" type="string">
+  Professional certifications
+</ResponseField>
+
+<ResponseField name="referencias" type="string">
+  Professional references
+</ResponseField>
+
+<ResponseField name="fecha_creacion" type="string">
+  ISO timestamp of CV creation
+</ResponseField>
+
+<ResponseField name="fecha_actualizacion" type="string">
+  ISO timestamp of last update
+</ResponseField>
+
+## Response Example
+
+```json
+{
+  "id_cv": 42,
+  "aspirante": {
+    "idAspirante": 15,
+    "usuario": {
+      "nombres": "María",
+      "apellidos": "García",
+      "correo": "maria@example.com"
+    }
+  },
+  "resumen_profesional": "Cuidadora con 5 años de experiencia en cuidado geriátrico especializado",
+  "experiencia_laboral": "5 años trabajando con adultos mayores en residencias y hogares particulares",
+  "educacion": "Técnico en Enfermería - Instituto Técnico de Salud",
+  "habilidades": "Primeros auxilios, cuidado de pacientes con Alzheimer, administración de medicamentos, movilización de pacientes",
+  "certificaciones": "Certificado en Primeros Auxilios (2022), Certificado en Cuidado Geriátrico (2021)",
+  "referencias": "Disponibles a solicitud",
+  "fecha_creacion": "2024-01-15T10:30:00Z",
+  "fecha_actualizacion": "2024-03-15T14:20:00Z"
+}
+```
+
+## CV Components
+
+The CV system includes multiple specialized components:
+
+<CardGroup cols={2}>
+  <Card title="Certificates" icon="certificate">
+    CertificadosForm component manages professional certifications
+  </Card>
+  <Card title="Availability" icon="calendar">
+    DisponibilidadForm manages work schedule availability
+  </Card>
+  <Card title="Skills" icon="star">
+    HabilidadesForm manages skills and competencies
+  </Card>
+  <Card title="CV View" icon="eye">
+    CVCompletoView and CVContratanteView for displaying CVs
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+The service includes comprehensive error handling:
+
+```javascript
+try {
+  const cv = await getCVById(id);
+  return cv;
+} catch (error) {
+  if (error.response) {
+    // Server responded with error
+    if (error.response.status === 404) {
+      throw new Error('El CV solicitado no existe');
+    } else if (error.response.status === 500) {
+      throw new Error('Error en el servidor al procesar tu solicitud');
+    }
+  } else if (error.request) {
+    // Request made but no response
+    throw new Error('No se pudo conectar con el servidor');
+  } else {
+    // Other errors
+    throw new Error('Error inesperado');
+  }
+}
+```
+
+## Global Axios Interceptor
+
+The CV service includes a global error interceptor:
+
+```javascript
+import axios from 'axios';
+
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('Error en la respuesta:', error);
+    return Promise.reject(error);
+  }
+);
+```
+
+## Usage in Components
+
+### Check CV Exists Before Creating
+
+```javascript
+import { checkIfAspiranteHasCV, getCVByAspiranteId, createCV } from './servicios/cvService';
+
+const handleCreateCV = async (aspiranteId, cvData) => {
+  // Check if CV already exists
+  const hasCV = await checkIfAspiranteHasCV(aspiranteId);
+  
+  if (hasCV) {
+    // Get existing CV
+    const existingCV = await getCVByAspiranteId(aspiranteId);
+    console.log('Aspirante already has CV:', existingCV.id_cv);
+    
+    // Redirect to edit instead
+    navigate(`/cv/editar/${existingCV.id_cv}`);
+  } else {
+    // Create new CV
+    const newCV = await createCV({
+      ...cvData,
+      aspirante: { idAspirante: aspiranteId }
+    });
+    
+    console.log('CV created successfully');
+    navigate(`/cv/${newCV.id_cv}`);
+  }
+};
+```
+
+### Update CV with Validation
+
+```javascript
+const handleUpdateCV = async (cvId, aspiranteId, updatedData) => {
+  try {
+    // Validate ownership
+    const existingCV = await getCVById(cvId);
+    
+    if (existingCV.aspirante.idAspirante !== aspiranteId) {
+      throw new Error('No tienes permiso para editar este CV');
+    }
+    
+    // Update CV
+    const updated = await updateCV(cvId, updatedData);
+    toast.success('CV actualizado exitosamente');
+    return updated;
+  } catch (error) {
+    toast.error(error.message);
+  }
+};
+```
+
+## Endpoints Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/cvs` | Get all CVs |
+| GET | `/api/cvs/{id}` | Get CV by ID |
+| POST | `/api/cvs` | Create new CV |
+| PUT | `/api/cvs/{id}` | Update CV |
+| DELETE | `/api/cvs/{id}` | Delete CV |
+| GET | `/api/cvs/existe-por-aspirante/{id}` | Check if aspirante has CV |
+| GET | `/api/cvs/por-aspirante/{id}` | Get CV by aspirante ID |
+
+## Related APIs
+
+<CardGroup cols={2}>
+  <Card title="Users API" icon="users" href="/api/users">
+    Aspirante profiles and user data
+  </Card>
+  <Card title="Applications" icon="file-contract" href="/api/applications">
+    Job applications linked to CV
+  </Card>
+  <Card title="Jobs API" icon="briefcase" href="/api/jobs">
+    Jobs that caregivers apply to
+  </Card>
+</CardGroup>
+
+<Info>
+  **Best Practices:**
+  - Always check if a CV exists before creating a new one
+  - Validate CV ownership before updates
+  - Provide clear error messages for 404 and 500 errors
+  - Use the aspirante lookup endpoints for easy CV retrieval
+</Info>
+
+<Warning>
+  The CV validation ensures that when retrieving a CV by aspirante ID, it actually belongs to that aspirante. This prevents unauthorized access to CV data.
+</Warning>

@@ -1,0 +1,140 @@
+---
+title: Introduction
+description: Welcome to CALMA - Connecting healthcare professionals with meaningful employment opportunities
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="Hero Dark"
+/>
+
+## Welcome to CALMA
+
+CALMA is a comprehensive healthcare employment platform designed to bridge the gap between healthcare professionals seeking meaningful work and employers looking for qualified talent. Our platform streamlines the entire employment journey, from CV creation to real-time communication and patient care management.
+
+## What is CALMA?
+
+CALMA (Conectando Aspirantes con el Mercado Laboral) is a full-featured SaaS platform built with React that provides:
+
+- **Dual User Roles**: Separate interfaces for job seekers (Aspirantes) and employers (Contratantes)
+- **Comprehensive CV Management**: Build professional CVs with certificates, recommendations, skills, and availability
+- **Smart Job Matching**: Advanced filtering and search capabilities to connect the right talent with the right opportunities
+- **Real-Time Communication**: Built-in chat and video calling for seamless interaction between employers and candidates
+- **Patient Record Management**: Integrated system for managing patient health records (fichas)
+- **Rating System**: Transparent qualification system for both job seekers and employers
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="For Job Seekers" icon="user" href="/guides/job-seekers">
+    Create compelling CVs, browse opportunities, and connect with employers
+  </Card>
+  <Card title="For Employers" icon="building" href="/guides/employers">
+    Post jobs, manage applications, and find the perfect candidates
+  </Card>
+  <Card title="Real-Time Chat" icon="comments" href="/features/messaging">
+    WebSocket-powered messaging for instant communication
+  </Card>
+  <Card title="Patient Records" icon="file-medical" href="/features/patient-records">
+    Comprehensive health record management system
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+CALMA is built with modern web technologies:
+
+- **Frontend**: React 19 with React Router for navigation
+- **State Management**: React hooks and context
+- **Real-Time Communication**: STOMP.js over WebSocket
+- **HTTP Client**: Axios for API integration
+- **UI Components**: Framer Motion for animations, Lucide React for icons
+- **Authentication**: Firebase integration
+- **Styling**: CSS with custom themes
+- **Build Tool**: Vite
+
+## Platform Architecture
+
+```
+┌─────────────────────────────────────────┐
+│           CALMA Platform                │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────┐    ┌──────────────┐  │
+│  │  Aspirante  │    │ Contratante  │  │
+│  │   Module    │    │   Module     │  │
+│  └──────┬──────┘    └──────┬───────┘  │
+│         │                   │          │
+│         └───────┬───────────┘          │
+│                 │                      │
+│         ┌───────▼────────┐            │
+│         │ Shared Services │            │
+│         └───────┬────────┘            │
+│                 │                      │
+│    ┌────────────┼────────────┐        │
+│    │            │            │        │
+│ ┌──▼──┐  ┌─────▼─────┐  ┌──▼───┐    │
+│ │ CV  │  │   Chat    │  │Ficha │    │
+│ │Mgmt │  │WebSocket  │  │Mgmt  │    │
+│ └─────┘  └───────────┘  └──────┘    │
+│                                      │
+└──────────────────────────────────────┘
+           │
+           ▼
+    Backend API (AWS ELB)
+```
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running with CALMA in minutes
+  </Card>
+  <Card title="Features Overview" icon="sparkles" href="/features">
+    Explore all the powerful features CALMA offers
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Learn about the backend API integration
+  </Card>
+  <Card title="Components" icon="puzzle-piece" href="/components/aspirante/overview">
+    Dive into the component architecture
+  </Card>
+</CardGroup>
+
+## Why Choose CALMA?
+
+<AccordionGroup>
+  <Accordion title="Comprehensive Solution">
+    CALMA provides everything needed for healthcare employment in one platform - from CV building to communication to patient care management.
+  </Accordion>
+  
+  <Accordion title="Real-Time Features">
+    Built-in WebSocket support enables instant messaging and notifications, keeping users connected and informed.
+  </Accordion>
+  
+  <Accordion title="Specialized for Healthcare">
+    Purpose-built features like patient record management (fichas) cater specifically to healthcare industry needs.
+  </Accordion>
+  
+  <Accordion title="Modern Architecture">
+    Built with React 19 and modern web standards for a fast, responsive user experience.
+  </Accordion>
+</AccordionGroup>
+
+## Support
+
+Need help? We're here for you:
+
+- **Email**: calmasoporte2025@gmail.com
+- **GitHub**: [Report Issues](https://github.com/Gilson123tenemea/FROND_CALMA_REACT/issues)
+- **Documentation**: Browse our comprehensive guides and API reference
+
+<Note>
+  CALMA is actively maintained and continuously improving. Check our GitHub repository for the latest updates and releases.
+</Note>

@@ -1,0 +1,500 @@
+---
+title: 'Ratings & Reviews'
+description: 'Caregiver rating and review system with editing capabilities and social interactions'
+icon: 'star'
+---
+
+## Overview
+
+The Calificacion (Rating) system allows contractors to rate and review caregivers after job completion. The system includes time-limited editing, social reactions, and comprehensive rating management.
+
+## Component Location
+
+**source/src/components/Calificacion/calificacion.jsx:1**
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Star Ratings" icon="star">
+    1-5 star rating system for service quality
+  </Card>
+  <Card title="Written Reviews" icon="comment">
+    Detailed text feedback on caregiver performance
+  </Card>
+  <Card title="Edit Window" icon="clock">
+    30-minute window to edit or delete ratings
+  </Card>
+  <Card title="Social Reactions" icon="heart">
+    Like and react to ratings from other users
+  </Card>
+</CardGroup>
+
+## Data Structure
+
+```javascript
+const calificacion = {
+  id_calificacion: number,
+  puntaje: number,           // 1-5 stars
+  comentario: string,        // Review text
+  fecha: string,             // ISO timestamp
+  postulacion: {
+    id_postulacion: number
+  },
+  contratante: {
+    idContratante: number
+  }
+};
+```
+
+## Service API
+
+Location: **source/src/servicios/calificacionService.js:1**
+
+<CodeGroup>
+```javascript GET All Ratings
+import axios from 'axios';
+
+const API_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/calificaciones';
+
+export const getCalificaciones = async () => {
+  const response = await axios.get(API_URL);
+  return response.data;
+};
+```
+
+```javascript GET Rating by ID
+export const getCalificacionById = async (id) => {
+  const response = await axios.get(`${API_URL}/${id}`);
+  return response.data;
+};
+```
+
+```javascript CREATE Rating
+export const createCalificacion = async (calificacion) => {
+  const response = await axios.post(API_URL, calificacion);
+  return response.data;
+};
+```
+
+```javascript UPDATE Rating
+export const updateCalificacion = async (id, calificacion) => {
+  const response = await axios.put(`${API_URL}/${id}`, calificacion);
+  return response.data;
+};
+```
+
+```javascript DELETE Rating
+export const deleteCalificacion = async (id) => {
+  await axios.delete(`${API_URL}/${id}`);
+};
+```
+</CodeGroup>
+
+## Component Implementation
+
+### URL Parameters
+
+The rating component uses several query parameters:
+
+<ParamField query="userId" type="string" required>
+  ID of the contractor creating the rating
+</ParamField>
+
+<ParamField query="idPostulacion" type="string" required>
+  ID of the job application being rated
+</ParamField>
+
+<ParamField query="aspirante" type="string">
+  Name of the caregiver being rated
+</ParamField>
+
+<ParamField query="view" type="boolean">
+  Set to "true" for view-only mode (no rating form)
+</ParamField>
+
+### State Management
+
+The component manages rating state at **source/src/components/Calificacion/calificacion.jsx:17**:
+
+```javascript
+const [puntaje, setPuntaje] = useState(0);           // Star rating 0-5
+const [comentario, setComentario] = useState('');    // Review text
+const [calificaciones, setCalificaciones] = useState([]);  // All ratings
+const [editandoId, setEditandoId] = useState(null); // ID being edited
+const [comentarioEditando, setComentarioEditando] = useState('');
+const [puntajeEditando, setPuntajeEditando] = useState(0);
+```
+
+### Loading Ratings
+
+Ratings are loaded on component mount at **source/src/components/Calificacion/calificacion.jsx:31**:
+
+```javascript
+const cargarCalificaciones = async () => {
+  try {
+    const respuesta = await fetch(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/calificaciones'
+    );
+    
+    if (respuesta.ok) {
+      const datos = await respuesta.json();
+      
+      // Filter by application if in view mode
+      let datosFiltrados = datos;
+      if (idPostulacionParam && isViewMode) {
+        datosFiltrados = datos.filter(cal =>
+          cal.postulacion.id_postulacion === parseInt(idPostulacionParam)
+        );
+      }
+      
+      // Sort by date (most recent first)
+      const datosOrdenados = datosFiltrados.sort(
+        (a, b) => new Date(b.fecha) - new Date(a.fecha)
+      );
+      
+      setCalificaciones(datosOrdenados);
+    }
+  } catch (error) {
+    console.error('Error al cargar calificaciones:', error);
+  }
+};
+```
+
+### Submitting a Rating
+
+The submission handler at **source/src/components/Calificacion/calificacion.jsx:54**:
+
+```javascript
+const manejarEnvio = async (e) => {
+  e.preventDefault();
+  
+  // Validation
+  if (!userId) {
+    toast.error('Error: No se encontró el ID del usuario.');
+    return;
+  }
+  
+  if (puntaje === 0) {
+    toast.error('Por favor selecciona una calificación.');
+    return;
+  }
+  
+  if (!comentario.trim()) {
+    toast.error('Por favor escribe un comentario.');
+    return;
+  }
+  
+  const nuevaCalificacion = {
+    puntaje,
+    comentario: comentario.trim(),
+    fecha: new Date().toISOString(),
+    postulacion: { id_postulacion: parseInt(idPostulacionParam) || 1 },
+    contratante: { idContratante: parseInt(userId) }
+  };
+  
+  try {
+    const respuesta = await fetch(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/calificaciones',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevaCalificacion),
+      }
+    );
+    
+    if (respuesta.ok) {
+      toast.success('Calificación enviada con éxito.');
+      setPuntaje(0);
+      setComentario('');
+      cargarCalificaciones();
+      
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        navigate(`/trabajos-aceptados?userId=${userId}`);
+      }, 2000);
+    } else {
+      const errorData = await respuesta.text();
+      toast.error(`Error al enviar la calificación: ${errorData}`);
+    }
+  } catch (error) {
+    console.error(error);
+    toast.error('Ocurrió un error inesperado.');
+  }
+};
+```
+
+## Edit Window Feature
+
+### 30-Minute Edit Rule
+
+Ratings can only be edited within 30 minutes of creation at **source/src/components/Calificacion/calificacion.jsx:113**:
+
+```javascript
+const puedeEditar = (fecha) => {
+  const fechaCalificacion = new Date(fecha);
+  const ahora = new Date();
+  const diferencia = ahora - fechaCalificacion;
+  const minutosTranscurridos = diferencia / (1000 * 60);
+  return minutosTranscurridos <= 30;
+};
+```
+
+### Editing Implementation
+
+<Steps>
+  <Step title="Initiate Edit">
+    ```javascript
+    const iniciarEdicion = (calificacion) => {
+      setEditandoId(calificacion.id_calificacion);
+      setComentarioEditando(calificacion.comentario);
+      setPuntajeEditando(calificacion.puntaje);
+    };
+    ```
+  </Step>
+  
+  <Step title="Save Changes">
+    ```javascript
+    const guardarEdicion = async (id) => {
+      try {
+        const respuesta = await fetch(
+          `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/calificaciones/${id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              puntaje: puntajeEditando,
+              comentario: comentarioEditando,
+              fecha: new Date().toISOString(),
+              postulacion: { id_postulacion: parseInt(idPostulacionParam) || 1 },
+              contratante: { idContratante: parseInt(userId) }
+            }),
+          }
+        );
+        
+        if (respuesta.ok) {
+          toast.success('Calificación actualizada con éxito.');
+          setEditandoId(null);
+          cargarCalificaciones();
+        }
+      } catch (error) {
+        toast.error('Ocurrió un error inesperado.');
+      }
+    };
+    ```
+  </Step>
+  
+  <Step title="Cancel Edit">
+    ```javascript
+    const cancelarEdicion = () => {
+      setEditandoId(null);
+      setComentarioEditando('');
+      setPuntajeEditando(0);
+    };
+    ```
+  </Step>
+</Steps>
+
+### Deletion
+
+Ratings can be deleted within the 30-minute window:
+
+```javascript
+const eliminarCalificacion = async (id) => {
+  if (window.confirm('¿Estás seguro de que deseas eliminar esta calificación?')) {
+    try {
+      const respuesta = await fetch(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/calificaciones/${id}`,
+        { method: 'DELETE' }
+      );
+      
+      if (respuesta.ok) {
+        toast.success('Calificación eliminada con éxito.');
+        cargarCalificaciones();
+      }
+    } catch (error) {
+      toast.error('Ocurrió un error inesperado.');
+    }
+  }
+};
+```
+
+## Social Reactions
+
+Users can react to ratings with emojis at **source/src/components/Calificacion/calificacion.jsx:180**:
+
+```javascript
+const reaccionar = async (calificacionId, tipoReaccion) => {
+  toast.info(`Reaccionaste con ${tipoReaccion}`);
+};
+
+// Available reactions
+<button onClick={() => reaccionar(calificacion.id_calificacion, '👍')}>👍</button>
+<button onClick={() => reaccionar(calificacion.id_calificacion, '❤️')}>❤️</button>
+<button onClick={() => reaccionar(calificacion.id_calificacion, '😊')}>😊</button>
+```
+
+## Star Rating UI
+
+### Rating Input
+
+```javascript
+<div className={styles.estrellasInput}>
+  {[1, 2, 3, 4, 5].map((valor) => (
+    <span
+      key={valor}
+      className={valor <= puntaje ? `${styles.estrella} ${styles.activa}` : styles.estrella}
+      onClick={() => setPuntaje(valor)}
+    >
+      ★
+    </span>
+  ))}
+</div>
+```
+
+### Rating Display
+
+```javascript
+<div className={styles.estrellasComentario}>
+  {[...Array(5)].map((_, i) => (
+    <span
+      key={i}
+      className={i < calificacion.puntaje ? `${styles.estrella} ${styles.activa}` : styles.estrella}
+    >
+      ★
+    </span>
+  ))}
+</div>
+```
+
+## Date Formatting
+
+Ratings display formatted timestamps at **source/src/components/Calificacion/calificacion.jsx:184**:
+
+```javascript
+const formatearFecha = (fecha) => {
+  const fechaObj = new Date(fecha);
+  const opciones = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  return fechaObj.toLocaleDateString('es-ES', opciones);
+};
+
+// Output example: "15 mar 2024, 14:30"
+```
+
+## View Modes
+
+### Rating Form Mode
+
+When `view=false` or not set, shows rating form:
+
+```javascript
+{!isViewMode && (
+  <div className={styles.calificacionForm}>
+    <form onSubmit={manejarEnvio}>
+      <h3>Califique el Servicio</h3>
+      <div className={styles.estrellasInput}>...</div>
+      <textarea
+        placeholder="Escribe un comentario..."
+        value={comentario}
+        onChange={(e) => setComentario(e.target.value)}
+        required
+      />
+      <button type="submit">Enviar Calificación</button>
+    </form>
+  </div>
+)}
+```
+
+### View-Only Mode
+
+When `view=true`, shows only existing ratings filtered by application:
+
+```javascript
+if (idPostulacionParam && isViewMode) {
+  datosFiltrados = datos.filter(cal =>
+    cal.postulacion.id_postulacion === parseInt(idPostulacionParam)
+  );
+}
+```
+
+## Usage Example
+
+<Steps>
+  <Step title="Create Rating">
+    ```javascript
+    import { createCalificacion } from './servicios/calificacionService';
+    
+    const rating = {
+      puntaje: 5,
+      comentario: 'Excelente cuidadora, muy atenta y profesional',
+      fecha: new Date().toISOString(),
+      postulacion: { id_postulacion: 42 },
+      contratante: { idContratante: 15 }
+    };
+    
+    const result = await createCalificacion(rating);
+    ```
+  </Step>
+  
+  <Step title="View Ratings">
+    Navigate to:
+    ```
+    /calificacion?userId=15&idPostulacion=42&aspirante=Maria+Garcia&view=true
+    ```
+  </Step>
+  
+  <Step title="Create New Rating">
+    Navigate to:
+    ```
+    /calificacion?userId=15&idPostulacion=42&aspirante=Maria+Garcia
+    ```
+  </Step>
+</Steps>
+
+## API Endpoints Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/calificaciones` | Get all ratings |
+| GET | `/api/calificaciones/{id}` | Get specific rating |
+| POST | `/api/calificaciones` | Create new rating |
+| PUT | `/api/calificaciones/{id}` | Update rating |
+| DELETE | `/api/calificaciones/{id}` | Delete rating |
+
+## Validation Rules
+
+<Warning>
+  **Required Fields:**
+  - Rating (puntaje): Must be 1-5 stars
+  - Comment (comentario): Cannot be empty
+  - User ID: Must be present in URL params
+  - Application ID: Must be valid postulacion ID
+</Warning>
+
+## Toast Notifications
+
+The component uses react-toastify for feedback:
+
+```javascript
+import { ToastContainer, toast } from 'react-toastify';
+
+toast.success('Calificación enviada con éxito.');
+toast.error('Por favor selecciona una calificación.');
+toast.info('Reaccionaste con 👍');
+```
+
+## Features Summary
+
+<Info>
+  - **Time-Limited Editing**: 30-minute window for modifications
+  - **Permanent Lock**: Ratings become permanent after 30 minutes
+  - **Real-Time Sorting**: Most recent ratings appear first
+  - **Social Reactions**: Users can react with emoji responses
+  - **Validation**: Ensures quality ratings with required fields
+  - **Toast Feedback**: Clear user notifications for all actions
+</Info>

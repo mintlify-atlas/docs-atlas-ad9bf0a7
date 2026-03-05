@@ -1,0 +1,448 @@
+---
+title: 'Jobs API'
+description: 'Job postings, publications, and employment opportunity management'
+icon: 'briefcase'
+---
+
+## Overview
+
+The Jobs API manages employment opportunities (trabajos/empleos) posted by contractors. The system uses two main endpoints: `/api/generar` for job publications and `/api/publicacion_empleo` for job management.
+
+## Base URLs
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/publicacion_empleo
+```
+
+## Get Jobs for Contractor
+
+### GET /api/generar/contratante/{userId}
+
+Retrieve all job postings created by a specific contractor.
+
+**Location:** Used in **source/src/components/ModuloContratante/ListaPublicaciones/listaPublicaciones.jsx:34**
+
+<CodeGroup>
+```javascript Axios
+import axios from 'axios';
+
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/contratante/${userId}`
+);
+
+const publicaciones = response.data;
+```
+
+```bash cURL
+curl 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/contratante/15'
+```
+</CodeGroup>
+
+### Response Format
+
+Returns an array of publication objects:
+
+```json
+[
+  {
+    "id_genera": 1,
+    "fechaPublicacion": "2024-03-15",
+    "publicacionempleo": {
+      "id_postulacion_empleo": 42,
+      "titulo": "Cuidador de adulto mayor",
+      "descripcion": "Se requiere cuidador con experiencia",
+      "salario_estimado": 550.00,
+      "requisitos": "Experiencia mínima 2 años",
+      "fecha_limite": "2024-04-01",
+      "jornada": "Tiempo completo",
+      "turno": "Mañana",
+      "disponibilidad_inmediata": true,
+      "actividades_realizar": "Cuidado personal, acompañamiento",
+      "id_paciente": 5,
+      "parroquia": {
+        "id_parroquia": 10,
+        "nombre": "La Mariscal",
+        "canton": {
+          "id_canton": 3,
+          "nombre": "Quito",
+          "provincia": {
+            "id_provincia": 1,
+            "nombre": "Pichincha"
+          }
+        }
+      }
+    },
+    "contratante": {
+      "idContratante": 8,
+      "usuario": {
+        "nombres": "Juan",
+        "apellidos": "Pérez",
+        "correo": "juan@example.com"
+      },
+      "empresas": [
+        {
+          "nombreEmpresa": "Cuidados Familia S.A."
+        }
+      ]
+    }
+  }
+]
+```
+
+## Get Available Jobs (Not Applied)
+
+### GET /api/generar/publicaciones-no-postuladas/{idAspirante}
+
+Retrieve job postings that an aspirante has NOT yet applied to.
+
+**Location:** Used in **source/src/components/ModuloAspirante/ListaTrabajos/listaTrabajos.jsx:26**
+
+```javascript
+const res = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/publicaciones-no-postuladas/${idAspirante}`
+);
+
+const trabajosDisponibles = res.data;
+```
+
+### Response Processing
+
+The frontend transforms the response into a cleaner format:
+
+```javascript
+const trabajosData = res.data.map(item => {
+  const parroquia = item.publicacionempleo?.parroquia;
+  const canton = parroquia?.canton;
+  const provincia = canton?.provincia;
+
+  return {
+    id: item.publicacionempleo?.id_postulacion_empleo,
+    titulo: item.publicacionempleo?.titulo || 'Sin título',
+    descripcion: item.publicacionempleo?.descripcion || 'Sin descripción',
+    salario: item.publicacionempleo?.salario_estimado || 0,
+    fechaLimite: item.publicacionempleo?.fecha_limite?.split('T')[0] || null,
+    contratante: item.contratante?.usuario?.nombres || 'Anónimo',
+    empresa: item.contratante?.empresas?.[0]?.nombreEmpresa || null,
+    fechaPublicacion: item.fechaPublicacion?.split('T')[0] || 'Sin fecha',
+    requisitos: item.publicacionempleo?.requisitos || 'No especificado',
+    jornada: item.publicacionempleo?.jornada || 'No especificada',
+    correo: item.contratante?.usuario?.correo || null,
+    turno: item.publicacionempleo?.turno || 'No especificado',
+    disponibilidad: item.publicacionempleo?.disponibilidad_inmediata === true 
+      ? 'Inmediata' : 'No Inmediata',
+    actividadesRealizar: item.publicacionempleo?.actividades_realizar || 'No especificadas',
+    ubicacion: {
+      parroquia: parroquia?.nombre || '',
+      canton: canton?.nombre || '',
+      provincia: provincia?.nombre || ''
+    }
+  };
+});
+```
+
+## Delete Job Posting
+
+### DELETE /api/publicacion_empleo/eliminar/{idPublicacion}
+
+Delete a job posting by its ID.
+
+**Location:** Used in **source/src/components/ModuloContratante/ListaPublicaciones/listaPublicaciones.jsx:70**
+
+```javascript
+const response = await axios.delete(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/publicacion_empleo/eliminar/${idPublicacion}`
+);
+
+const mensaje = response.data; // Success/error message string
+```
+
+### Response Handling
+
+The endpoint returns a text message indicating success or failure:
+
+```javascript
+const mensaje = response.data.toLowerCase();
+
+if (mensaje.includes('correctamente')) {
+  // Deletion successful
+  toast.success(response.data);
+} else if (mensaje.includes('no se puede') || mensaje.includes('error') || mensaje.includes('no encontrada')) {
+  // Deletion failed
+  toast.error(response.data);
+} else {
+  toast.info(response.data);
+}
+```
+
+Common responses:
+- "Publicación eliminada correctamente"
+- "No se puede eliminar la publicación porque tiene postulaciones activas"
+- "Publicación no encontrada"
+
+## Job Publication Fields
+
+<ResponseField name="id_postulacion_empleo" type="number">
+  Unique job posting ID
+</ResponseField>
+
+<ResponseField name="titulo" type="string">
+  Job title
+</ResponseField>
+
+<ResponseField name="descripcion" type="string">
+  Job description
+</ResponseField>
+
+<ResponseField name="salario_estimado" type="number">
+  Estimated salary amount
+</ResponseField>
+
+<ResponseField name="requisitos" type="string">
+  Job requirements
+</ResponseField>
+
+<ResponseField name="fecha_limite" type="string">
+  Application deadline (ISO date)
+</ResponseField>
+
+<ResponseField name="jornada" type="string">
+  Work schedule: "Tiempo completo", "Medio tiempo", "Por horas"
+</ResponseField>
+
+<ResponseField name="turno" type="string">
+  Shift: "Mañana", "Tarde", "Noche", "Rotativo"
+</ResponseField>
+
+<ResponseField name="disponibilidad_inmediata" type="boolean">
+  Whether immediate availability is required
+</ResponseField>
+
+<ResponseField name="actividades_realizar" type="string">
+  Tasks and activities to be performed
+</ResponseField>
+
+<ResponseField name="id_paciente" type="number">
+  ID of the patient requiring care
+</ResponseField>
+
+<ResponseField name="parroquia" type="object">
+  Location information (parish, canton, province)
+</ResponseField>
+
+## Location Structure
+
+Jobs include nested location data:
+
+```json
+{
+  "parroquia": {
+    "id_parroquia": 10,
+    "nombre": "La Mariscal",
+    "canton": {
+      "id_canton": 3,
+      "nombre": "Quito",
+      "provincia": {
+        "id_provincia": 1,
+        "nombre": "Pichincha"
+      }
+    }
+  }
+}
+```
+
+Display format:
+```javascript
+const ubicacion = `${parroquia.nombre}, ${canton.nombre}, ${provincia.nombre}`;
+// Output: "La Mariscal, Quito, Pichincha"
+```
+
+## Job Status Types
+
+<CardGroup cols={2}>
+  <Card title="Active" icon="check-circle">
+    Job is open for applications
+  </Card>
+  <Card title="Deadline Passed" icon="clock">
+    fecha_limite has passed
+  </Card>
+  <Card title="With Applications" icon="users">
+    Has received postulaciones
+  </Card>
+  <Card title="Filled" icon="user-check">
+    Position has been filled
+  </Card>
+</CardGroup>
+
+## Usage Examples
+
+### List Contractor's Jobs
+
+```javascript
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const MisPublicaciones = ({ userId }) => {
+  const [publicaciones, setPublicaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPublicaciones = async () => {
+      try {
+        const res = await axios.get(
+          `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/contratante/${userId}`
+        );
+        setPublicaciones(res.data);
+      } catch (err) {
+        console.error('Error al cargar publicaciones:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPublicaciones();
+  }, [userId]);
+
+  return (
+    <div>
+      {publicaciones.map(pub => (
+        <div key={pub.id_genera}>
+          <h3>{pub.publicacionempleo.titulo}</h3>
+          <p>Salario: ${pub.publicacionempleo.salario_estimado}</p>
+          <p>Fecha límite: {pub.publicacionempleo.fecha_limite}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+### Show Available Jobs
+
+```javascript
+const TrabajosDisponibles = ({ idAspirante }) => {
+  const [trabajos, setTrabajos] = useState([]);
+
+  useEffect(() => {
+    const fetchTrabajos = async () => {
+      try {
+        const res = await axios.get(
+          `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/publicaciones-no-postuladas/${idAspirante}`
+        );
+        
+        const trabajosFormateados = res.data.map(item => ({
+          id: item.publicacionempleo.id_postulacion_empleo,
+          titulo: item.publicacionempleo.titulo,
+          salario: item.publicacionempleo.salario_estimado,
+          ubicacion: `${item.publicacionempleo.parroquia.nombre}, ${item.publicacionempleo.parroquia.canton.nombre}`,
+          fechaLimite: item.publicacionempleo.fecha_limite.split('T')[0]
+        }));
+        
+        setTrabajos(trabajosFormateados);
+      } catch (err) {
+        console.error('Error cargando trabajos:', err);
+      }
+    };
+
+    fetchTrabajos();
+  }, [idAspirante]);
+
+  return (
+    <div>
+      {trabajos.map(trabajo => (
+        <JobCard key={trabajo.id} trabajo={trabajo} />
+      ))}
+    </div>
+  );
+};
+```
+
+### Delete Job with Confirmation
+
+```javascript
+import { toast } from 'react-toastify';
+
+const deleteJob = async (idPublicacion) => {
+  if (!window.confirm('¿Estás seguro de eliminar esta publicación?')) {
+    return;
+  }
+
+  try {
+    const response = await axios.delete(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/publicacion_empleo/eliminar/${idPublicacion}`
+    );
+    
+    const mensaje = response.data.toLowerCase();
+    
+    if (mensaje.includes('correctamente')) {
+      toast.success('Publicación eliminada exitosamente');
+      // Refresh the list
+      fetchPublicaciones();
+    } else {
+      toast.error(response.data);
+    }
+  } catch (error) {
+    console.error('Error eliminando publicación:', error);
+    toast.error('No se pudo eliminar la publicación');
+  }
+};
+```
+
+## Filtering and Search
+
+Frontend typically implements client-side filtering:
+
+```javascript
+const [filtroTitulo, setFiltroTitulo] = useState('');
+const [filtroFecha, setFiltroFecha] = useState('');
+const [rangoSalario, setRangoSalario] = useState([0, 9999999]);
+
+const trabajosFiltrados = trabajos.filter(trabajo => {
+  const tituloMatch = trabajo.titulo
+    .toLowerCase()
+    .includes(filtroTitulo.toLowerCase());
+  
+  const fechaMatch = filtroFecha
+    ? trabajo.fechaPublicacion === filtroFecha
+    : true;
+  
+  const salario = trabajo.salario || 0;
+  const [min, max] = rangoSalario;
+  const salarioMatch = salario >= min && salario <= max;
+  
+  return tituloMatch && fechaMatch && salarioMatch;
+});
+```
+
+## Endpoints Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/generar/contratante/{userId}` | Get contractor's job postings |
+| GET | `/api/generar/publicaciones-no-postuladas/{idAspirante}` | Get jobs not applied to by aspirante |
+| DELETE | `/api/publicacion_empleo/eliminar/{id}` | Delete job posting |
+
+<Info>
+  **Note:** Job creation and update endpoints are handled through form components. The exact endpoints may vary based on the backend implementation.
+</Info>
+
+## Related APIs
+
+<CardGroup cols={2}>
+  <Card title="Applications" icon="file-contract" href="/api/applications">
+    Job application management
+  </Card>
+  <Card title="Patients" icon="hospital-user" href="/api/patients">
+    Patient records linked to jobs
+  </Card>
+  <Card title="Users" icon="users" href="/api/users">
+    Contractor and caregiver profiles
+  </Card>
+  <Card title="Notifications" icon="bell" href="/api/notifications">
+    Job-related notifications
+  </Card>
+</CardGroup>
+
+<Warning>
+  Jobs with active applications cannot be deleted. The system will return an error message indicating the job has postulaciones activas.
+</Warning>

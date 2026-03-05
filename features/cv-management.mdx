@@ -1,0 +1,347 @@
+---
+title: CV Management
+description: Build comprehensive professional CVs with certificates, skills, and recommendations
+---
+
+## Overview
+
+CALMA's CV management system enables healthcare professionals to create detailed, professional CVs that showcase their experience, education, skills, and qualifications. The system is built around the CVForm component and includes multiple sub-components for certificates, recommendations, skills, and availability.
+
+## CV Form Component
+
+The main CV form is located at `src/components/ModuloAspirante/CV/cv.jsx` and provides a comprehensive interface for building a professional profile.
+
+### Key Features
+
+<CardGroup cols={2}>
+  <Card title="Personal Information" icon="user">
+    Name, contact details, professional summary
+  </Card>
+  <Card title="Experience" icon="briefcase">
+    Work history with dates and descriptions
+  </Card>
+  <Card title="Education" icon="graduation-cap">
+    Academic qualifications and training
+  </Card>
+  <Card title="Skills & Languages" icon="language">
+    Technical skills and language proficiency
+  </Card>
+</CardGroup>
+
+### Form Fields
+
+The CV form includes the following key fields:
+
+```javascript
+// Core CV fields from cv.jsx
+{
+  nombres: string,
+  apellidos: string,
+  cedula: string,
+  correo: string,
+  telefono: string,
+  titulo: string,
+  resumen: string,
+  experiencia: string,
+  educacion: string,
+  zona_trabajo: string,
+  idiomas: string,
+  disponibilidad: string
+}
+```
+
+## CV Steps Navigation
+
+The CV building process uses a step-by-step navigation component (`FichastepsNav.jsx`) to guide users through:
+
+<Steps>
+  <Step title="Basic Information">
+    Enter personal details, contact information, and professional title
+  </Step>
+  
+  <Step title="Experience & Education">
+    Add work experience and educational background
+  </Step>
+  
+  <Step title="Certificates">
+    Upload professional certificates and credentials
+  </Step>
+  
+  <Step title="Skills & Languages">
+    List technical skills and language proficiencies
+  </Step>
+  
+  <Step title="Recommendations">
+    Add professional recommendations and references
+  </Step>
+  
+  <Step title="Availability">
+    Set work availability and preferences
+  </Step>
+</Steps>
+
+## Certificates Component
+
+Location: `src/components/Certificados/CertificadosForm.jsx`
+
+The certificates component allows users to add professional certifications:
+
+```javascript
+// Certificate form fields
+{
+  nombre: string,           // Certificate name
+  institucion: string,      // Issuing institution
+  fecha_obtencion: date,   // Date obtained
+  descripcion: string      // Description
+}
+```
+
+### Adding Certificates
+
+<CodeGroup>
+```javascript Route
+// Navigate to certificates from CV
+<Route path="/cv/:idCV/certificados" element={<CertificadosForm />} />
+```
+
+```javascript API
+// Certificate service endpoint
+const API_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/certificados';
+```
+</CodeGroup>
+
+## Skills Component
+
+Location: `src/components/Habilidades/HabilidadesForm.jsx`
+
+Manage technical and soft skills:
+
+```javascript
+// Skills form structure
+{
+  nombre: string,        // Skill name
+  nivel: string,        // Proficiency level (Básico, Intermedio, Avanzado)
+  categoria: string     // Skill category
+}
+```
+
+### Skill Categories
+
+- **Technical Skills**: Medical equipment, software, procedures
+- **Soft Skills**: Communication, leadership, teamwork
+- **Languages**: Language proficiency levels
+- **Certifications**: Professional qualifications
+
+## Recommendations Component
+
+Location: `src/components/Recomendaciones/RecomendacionesForm.jsx`
+
+Add professional recommendations to strengthen your profile:
+
+```javascript
+// Recommendation structure
+{
+  nombre_referencia: string,    // Reference name
+  cargo: string,                // Their position
+  empresa: string,              // Company
+  telefono: string,             // Contact phone
+  correo: string,               // Contact email
+  descripcion: string           // Recommendation text
+}
+```
+
+## Availability Component
+
+Location: `src/components/Disponibilidad/DisponibilidadForm.jsx`
+
+Set work availability preferences:
+
+```javascript
+// Availability fields
+{
+  dias_disponibles: array,     // Available days
+  horario_inicio: time,        // Start time
+  horario_fin: time,          // End time
+  modalidad: string,          // Work modality (Presencial, Remoto, Híbrido)
+  fecha_inicio: date          // Available from date
+}
+```
+
+## CV Viewing
+
+### Complete CV View
+
+Location: `src/components/ModuloAspirante/CV/CVCompletoView.jsx`
+
+Displays the complete CV with all sections in a professional format:
+
+```javascript
+// Access complete CV view
+<Route path="/ver-cv/:idCV" element={<CVCompletoView />} />
+```
+
+### Contractor CV View
+
+Location: `src/components/ModuloAspirante/CV/CVContratanteView.jsx`
+
+Employers can view candidate CVs through:
+
+```javascript
+// View candidate CV
+<Route path="/cv-aspirante/:idAspirante" element={<CVContratanteView />} />
+```
+
+## CV Protection
+
+CALMA requires users to complete their CV before accessing certain features through the `RequireCV` component:
+
+```javascript RequireCV.jsx
+import { Navigate } from 'react-router-dom';
+
+function RequireCV({ children }) {
+  const cvCompleto = localStorage.getItem('cvCompleto');
+  
+  if (!cvCompleto) {
+    return <Navigate to="/moduloAspirante/cv" replace />;
+  }
+  
+  return children;
+}
+```
+
+### Protected Routes
+
+Routes that require a complete CV:
+- Job applications
+- Postulations management
+- Profile access
+- Certificate management
+- Recommendations
+
+## API Integration
+
+The CV system integrates with backend APIs:
+
+<ResponseField name="GET /api/cv/:idCV" type="object">
+  Retrieve CV details
+  
+  <Expandable title="Response">
+    <ResponseField name="idCV" type="number">
+      CV unique identifier
+    </ResponseField>
+    <ResponseField name="idAspirante" type="number">
+      Associated job seeker ID
+    </ResponseField>
+    <ResponseField name="titulo" type="string">
+      Professional title
+    </ResponseField>
+    <ResponseField name="resumen" type="string">
+      Professional summary
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="POST /api/cv" type="object">
+  Create or update CV
+  
+  <Expandable title="Request Body">
+    <ParamField path="idAspirante" type="number" required>
+      Job seeker ID
+    </ParamField>
+    <ParamField path="titulo" type="string" required>
+      Professional title
+    </ParamField>
+    <ParamField path="experiencia" type="string">
+      Work experience details
+    </ParamField>
+    <ParamField path="educacion" type="string">
+      Educational background
+    </ParamField>
+  </Expandable>
+</ResponseField>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Write a compelling summary">
+    Your professional summary should be concise (2-3 sentences) and highlight your key strengths and experience in healthcare.
+  </Accordion>
+  
+  <Accordion title="Keep experience current">
+    Update your work experience regularly. Include specific responsibilities and achievements.
+  </Accordion>
+  
+  <Accordion title="Add verifiable certificates">
+    Only add certificates you can verify. Include certificate numbers and issuing institutions.
+  </Accordion>
+  
+  <Accordion title="Be honest about skills">
+    Accurately represent your skill levels. Employers may verify during interviews.
+  </Accordion>
+  
+  <Accordion title="Update availability">
+    Keep your availability current to receive relevant job matches.
+  </Accordion>
+</AccordionGroup>
+
+## Technical Implementation
+
+### Form Validation
+
+The CV form includes comprehensive validation:
+
+```javascript
+// Email validation
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Phone validation
+const phoneRegex = /^[0-9]{10}$/;
+
+// Required field validation
+if (!formData.nombres || !formData.apellidos || !formData.cedula) {
+  toast.error('Por favor completa todos los campos obligatorios');
+  return;
+}
+```
+
+### State Management
+
+CV data is managed using React hooks:
+
+```javascript
+const [formData, setFormData] = useState({
+  nombres: '',
+  apellidos: '',
+  titulo: '',
+  // ... other fields
+});
+
+const handleChange = (e) => {
+  const { name, value } = e.target;
+  setFormData(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
+```
+
+### API Service
+
+CV operations use the axios-based service:
+
+```javascript cvService.js
+import axios from 'axios';
+
+const API_BASE = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090';
+
+export const cvService = {
+  getCV: (id) => axios.get(`${API_BASE}/api/cv/${id}`),
+  createCV: (data) => axios.post(`${API_BASE}/api/cv`, data),
+  updateCV: (id, data) => axios.put(`${API_BASE}/api/cv/${id}`, data),
+  deleteCV: (id) => axios.delete(`${API_BASE}/api/cv/${id}`)
+};
+```
+
+<Note>
+  Remember to complete all CV sections to unlock full platform features and increase your visibility to employers.
+</Note>

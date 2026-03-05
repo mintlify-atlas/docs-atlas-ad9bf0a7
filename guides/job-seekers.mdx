@@ -1,0 +1,531 @@
+---
+title: 'Job Seekers Guide'
+description: 'Complete guide for job seekers using the CALMA healthcare employment platform'
+icon: 'user-tie'
+---
+
+## Overview
+
+Welcome to CALMA, the healthcare employment platform designed to connect talented professionals with dignified and fair employment opportunities. As a job seeker (aspirante), you have access to powerful tools to showcase your skills, browse opportunities, and manage your applications.
+
+<Note>
+CALMA is built specifically for the healthcare industry, helping you find positions that align with your skills and aspirations.
+</Note>
+
+## Getting Started
+
+### Creating Your Account
+
+Before you can access job opportunities, you'll need to register as an aspirante in the system. The authentication system uses **Firebase** for secure user management.
+
+<Steps>
+  <Step title="Navigate to Registration">
+    Visit the registration page and select the **Aspirante** (Job Seeker) role.
+  </Step>
+  
+  <Step title="Provide Your Details">
+    Fill in your basic information including:
+    - Full name (nombres and apellidos)
+    - Email address (correo)
+    - Password (minimum 8 characters)
+    - National ID (cédula)
+    - Date of birth (fechaNacimiento)
+    - Gender (genero)
+  </Step>
+  
+  <Step title="Complete Registration">
+    Upon successful registration, your data is stored in the system and you'll receive an `aspiranteId` that identifies your profile throughout the platform.
+  </Step>
+</Steps>
+
+### First Login
+
+When you log in for the first time, the system checks if you have a CV on file:
+
+```javascript
+// From Login.jsx:101-119
+const handleAspiranteLogin = async (userData) => {
+  const cvData = await getCVByAspiranteId(userData.aspiranteId);
+  
+  if (!cvData) {
+    // Redirect to CV creation
+    navigate('/cv/new', {
+      state: { userId: userData.aspiranteId, isFirstTime: true }
+    });
+  } else {
+    // Redirect to job seeker dashboard
+    navigate('/moduloAspirante', {
+      state: { userId: userData.aspiranteId, hasCV: true }
+    });
+  }
+};
+```
+
+<Info>
+If you don't have a CV yet, you'll be automatically redirected to create one. This is **required** before you can browse and apply for jobs.
+</Info>
+
+---
+
+## Building Your Professional Profile
+
+### Creating Your CV
+
+Your CV is the cornerstone of your profile in CALMA. It's stored in the database and accessible to employers when you apply for positions.
+
+#### Personal Information Section
+
+<CardGroup cols={2}>
+  <Card title="Basic Details" icon="id-card">
+    - Full name
+    - Email address
+    - Phone number
+    - National ID (cédula)
+    - Date of birth
+    - Gender
+    - Profile photo
+  </Card>
+  
+  <Card title="Location Information" icon="map-marker-alt">
+    - Province (provincia)
+    - Canton
+    - Parish (parroquia)
+    - Specific address
+  </Card>
+</CardGroup>
+
+#### Professional Information
+
+<Accordion title="What to Include">
+  <AccordionGroup>
+    <Accordion title="Experience">
+      Document your work history with:
+      - Job title (titulo)
+      - Company/Organization (empresa)
+      - Start and end dates
+      - Description of responsibilities
+      - Skills used
+    </Accordion>
+    
+    <Accordion title="Education">
+      Add your educational background:
+      - Degree or certification type
+      - Institution name
+      - Field of study
+      - Graduation date
+      - Relevant coursework
+    </Accordion>
+    
+    <Accordion title="Certifications">
+      Upload professional certifications:
+      - Certificate name
+      - Issuing organization
+      - Date obtained
+      - Expiration date (if applicable)
+      - **Downloadable PDF files** are supported
+    </Accordion>
+  </AccordionGroup>
+</Accordion>
+
+#### Skills and Competencies
+
+CALMA allows you to showcase your skills with proficiency levels:
+
+- **Básico** (Basic) - Foundational knowledge
+- **Intermedio** (Intermediate) - Practical experience
+- **Avanzado** (Advanced) - Expert level
+
+```javascript
+// From CVCompletoView.jsx:94-101
+const getSkillLevel = (levelText) => {
+  switch (levelText) {
+    case 'Básico': return 3;
+    case 'Intermedio': return 4;
+    case 'Avanzado': return 5;
+    default: return 3;
+  }
+};
+```
+
+<Tip>
+Be honest about your skill levels. Employers use this information to match you with appropriate positions.
+</Tip>
+
+#### Languages
+
+Add languages you speak along with proficiency levels. This is especially important in healthcare where communication is critical.
+
+#### Recommendations
+
+You can include professional recommendations from previous employers or colleagues to strengthen your profile.
+
+---
+
+## Finding and Applying for Jobs
+
+### The Job Seeker Dashboard
+
+Once you've completed your CV, you'll access the `ModuloAspirante` component, which serves as your main dashboard.
+
+```javascript
+// From moduloAspirante.jsx:87-100
+return (
+  <div className="">
+    <HeaderAspirante
+      userId={userId}
+      aspiranteId={idAspirante}
+    />
+    <main className="main-content">
+      <Routes>
+        <Route path="/" element={<ListaTrabajos idAspirante={idAspirante} />} />
+        <Route path="/trabajos" element={<ListaTrabajos idAspirante={idAspirante} />} />
+      </Routes>
+    </main>
+  </div>
+);
+```
+
+<Card title="Dashboard Features" icon="dashboard">
+  The dashboard provides:
+  - Welcome modal with platform tips (shown on first visit)
+  - Header with navigation and notifications
+  - List of available job opportunities
+  - Filter and search tools
+</Card>
+
+### Welcome Modal
+
+When you first access your dashboard, you'll see an informative modal that explains:
+
+<CardGroup cols={2}>
+  <Card title="What You Can Do" icon="tasks">
+    - Create and maintain your digital CV
+    - Search for job offers matching your profile
+    - Apply with one click
+    - Track your applications in real-time
+    - Chat or video call with employers
+    - Receive notifications about new opportunities
+  </Card>
+  
+  <Card title="Tips for Success" icon="lightbulb">
+    - Complete your entire profile including education and experience
+    - Use a professional photo and clear biography
+    - Apply only to jobs that genuinely interest you
+    - Be punctual and respectful in interviews and chats
+    - Check the platform frequently for new opportunities
+  </Card>
+</CardGroup>
+
+### Browsing Job Listings
+
+The `ListaTrabajos` component displays jobs you **haven't applied to yet**:
+
+```javascript
+// From listaTrabajos.jsx:26
+const res = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/publicaciones-no-postuladas/${idAspirante}`
+);
+```
+
+<Info>
+The system automatically filters out jobs you've already applied to, ensuring you only see new opportunities.
+</Info>
+
+#### Job Information Display
+
+Each job listing includes:
+
+<Tabs>
+  <Tab title="Basic Info">
+    - **Title** (titulo) - Job position name
+    - **Description** (descripcion) - Detailed job description
+    - **Salary** (salario_estimado) - Estimated compensation
+    - **Publication Date** (fechaPublicacion) - When the job was posted
+    - **Application Deadline** (fecha_limite) - Last date to apply
+  </Tab>
+  
+  <Tab title="Requirements">
+    - **Requirements** (requisitos) - Qualifications needed
+    - **Schedule** (jornada) - Work schedule type
+    - **Shift** (turno) - Specific work hours
+    - **Activities** (actividades_realizar) - Job responsibilities
+    - **Immediate Availability** (disponibilidad_inmediata) - Start date flexibility
+  </Tab>
+  
+  <Tab title="Employer">
+    - **Employer Name** (contratante)
+    - **Company** (empresa) - Organization name if applicable
+    - **Contact Email** (correo)
+  </Tab>
+  
+  <Tab title="Location">
+    - **Province** (provincia)
+    - **Canton**
+    - **Parish** (parroquia)
+  </Tab>
+</Tabs>
+
+### Search and Filter Tools
+
+<Steps>
+  <Step title="Search by Title">
+    Use the search input to filter jobs by title:
+    
+    ```javascript
+    // From listaTrabajos.jsx:84
+    const tituloMatch = trabajo.titulo
+      .toLowerCase()
+      .includes(filters.titulo.toLowerCase());
+    ```
+  </Step>
+  
+  <Step title="Filter by Date">
+    Select a specific publication date to see jobs posted on that day.
+  </Step>
+  
+  <Step title="Filter by Salary Range">
+    Set minimum and maximum salary thresholds to find jobs within your desired compensation range.
+    
+    ```javascript
+    // From listaTrabajos.jsx:88-90
+    const [min, max] = filters.rangoSalario;
+    const salarioMatch = salario >= min && salario <= max;
+    ```
+  </Step>
+</Steps>
+
+### Applying for Jobs
+
+When you find a job that interests you, you can apply directly through the `CardTrabajo` component. The application process is streamlined:
+
+<Warning>
+Once you apply for a job, it will no longer appear in your available jobs list. The system tracks your applications to prevent duplicate submissions.
+</Warning>
+
+---
+
+## Communication Tools
+
+### Chat System
+
+CALMA includes a real-time chat system using **WebSocket** (STOMP protocol) for instant communication with employers.
+
+#### How Chat Works
+
+```javascript
+// From App.jsx:259-265
+const cliente = new Client({
+  brokerURL: "ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws",
+  reconnectDelay: 5000,
+  heartbeatIncoming: 4000,
+  heartbeatOutgoing: 4000,
+});
+```
+
+<Card title="Chat Features" icon="comments">
+  - **Real-time messaging** - Instant message delivery
+  - **Message history** - Access to previous conversations
+  - **Connection status** - Visual indicator of connection state
+  - **Message notifications** - Alerts for new messages
+  - **Conversation channels** - Unique channel per employer-applicant pair
+</Card>
+
+#### Conversation Channels
+
+Each conversation has a unique channel based on user IDs:
+
+```javascript
+// From App.jsx:112-117
+const canalConversacion = useMemo(() => {
+  const menor = Math.min(usuarioActual, destinatario);
+  const mayor = Math.max(usuarioActual, destinatario);
+  return `/tema/conversacion/${menor}-${mayor}`;
+}, [usuarioActual, destinatario]);
+```
+
+<Info>
+The system ensures both parties connect to the same channel by ordering the user IDs consistently.
+</Info>
+
+#### Sending Messages
+
+<Steps>
+  <Step title="Type Your Message">
+    Enter your message in the chat input field (max 500 characters).
+  </Step>
+  
+  <Step title="Press Send">
+    Click the send button or press Enter to send your message.
+  </Step>
+  
+  <Step title="Automatic Notification">
+    The system automatically sends a notification to the recipient:
+    
+    ```javascript
+    // From App.jsx:154-165
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+      {
+        remitenteId: remitenteId,
+        destinatarioId: destinatarioId,
+        contenido: contenido,
+        tipo: "MENSAJE_DIRECTO"
+      }
+    );
+    ```
+  </Step>
+</Steps>
+
+### Notifications
+
+Stay informed about important updates through the notification system:
+
+<CardGroup cols={2}>
+  <Card title="Application Updates" icon="clipboard-check">
+    - Application accepted
+    - Application rejected
+    - Interview requests
+    - Additional information needed
+  </Card>
+  
+  <Card title="Message Alerts" icon="envelope">
+    - New messages from employers
+    - System announcements
+    - Job recommendations
+    - Profile completion reminders
+  </Card>
+</CardGroup>
+
+<Tip>
+Check your notifications regularly to stay on top of application updates and employer messages.
+</Tip>
+
+---
+
+## Managing Your Applications
+
+### Application Status Tracking
+
+CALMA provides real-time visibility into the status of your applications:
+
+- **Pending** - Application under review
+- **Accepted** - Employer is interested
+- **Rejected** - Not selected for this position
+- **Completed** - Job assignment finished
+
+### Ratings and Reviews
+
+After completing a job, employers can rate your performance. These ratings appear on your profile and help build your reputation in the platform.
+
+<Card title="Rating System" icon="star">
+  - Displayed on your CV
+  - Visible to future employers
+  - Helps establish credibility
+  - Based on completed assignments
+</Card>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Profile Optimization">
+    - **Keep your CV updated** - Add new skills and experiences regularly
+    - **Professional photo** - Use a clear, professional headshot
+    - **Complete all sections** - Fill out every part of your profile
+    - **Upload certifications** - Provide proof of your qualifications
+    - **Get recommendations** - Ask colleagues for endorsements
+  </Accordion>
+  
+  <Accordion title="Job Applications">
+    - **Read job descriptions carefully** - Ensure you meet the requirements
+    - **Tailor your approach** - Highlight relevant experience in your CV
+    - **Apply promptly** - Don't wait until the deadline
+    - **Be selective** - Focus on positions that genuinely interest you
+    - **Follow up** - Use chat to ask thoughtful questions
+  </Accordion>
+  
+  <Accordion title="Communication">
+    - **Respond quickly** - Reply to messages within 24 hours
+    - **Be professional** - Use proper grammar and respectful language
+    - **Be prepared** - Have your schedule ready for interview coordination
+    - **Ask questions** - Show interest in the role and organization
+    - **Express gratitude** - Thank employers for their time and consideration
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Technical Details
+
+### Data Storage
+
+Your user information is stored in `localStorage` after successful login:
+
+```javascript
+// From Login.jsx:60
+localStorage.setItem('userData', JSON.stringify(data));
+```
+
+This includes:
+- `aspiranteId` - Your unique identifier
+- `usuarioId` - Your user account ID
+- `rol` - Your role ("aspirante")
+- Profile information (nombres, apellidos, correo)
+
+<Warning>
+Do not clear your browser's localStorage while using CALMA, as this will log you out and require re-authentication.
+</Warning>
+
+### Session Management
+
+CALMA uses a combination of:
+- **localStorage** - For persistent user data across sessions
+- **sessionStorage** - For temporary session-specific data
+- **Firebase Authentication** - For secure credential management
+
+---
+
+## Support and Help
+
+<Card title="Need Assistance?" icon="life-ring">
+  If you have questions or encounter issues:
+  
+  - **Email Support**: calmasoporte2025@gmail.com
+  - **In-App Help**: Access the support center from your dashboard
+  - **Response Time**: Usually within 24-48 hours
+</Card>
+
+<Check>
+CALMA is committed to helping you find dignified, fair employment opportunities. Take advantage of all the platform features to maximize your success!
+</Check>
+
+---
+
+## Quick Reference
+
+<CardGroup cols={3}>
+  <Card title="Login" icon="sign-in-alt">
+    `/login`
+    
+    Email + Password
+    
+    Min 8 characters
+  </Card>
+  
+  <Card title="Dashboard" icon="home">
+    `/moduloAspirante`
+    
+    Job listings
+    
+    Your applications
+  </Card>
+  
+  <Card title="CV Management" icon="file-alt">
+    `/cv/new`
+    
+    Create/edit CV
+    
+    Upload documents
+  </Card>
+</CardGroup>

@@ -1,0 +1,363 @@
+---
+title: 'Applications Component'
+description: 'Job application management for aspirants'
+---
+
+# PostulacionesAspirante Component
+
+Manages and displays all job applications submitted by an aspirant, including status tracking and patient information access.
+
+## Component Location
+
+`src/components/ModuloAspirante/PostulacionesAspirante/PostulacionesAspirante.jsx`
+
+## Component Structure
+
+```javascript
+const PostulacionesAspirante = () => {
+  const { aspiranteId } = useParams();
+  const [postulaciones, setPostulaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [currentAspiranteId, setCurrentAspiranteId] = useState(null);
+  const [chatbotAbierto, setChatbotAbierto] = useState(false);
+}
+```
+
+## State Management
+
+| State | Type | Purpose |
+|-------|------|--------|
+| `postulaciones` | array | List of job applications |
+| `loading` | boolean | Loading state for data fetch |
+| `error` | string/null | Error message if fetch fails |
+| `userId` | number/null | User ID for chat functionality |
+| `currentAspiranteId` | number/null | Current aspirante identifier |
+| `chatbotAbierto` | boolean | Chatbot visibility state |
+
+## Data Fetching
+
+### Aspirante ID Resolution
+
+```javascript
+useEffect(() => {
+  const userData = JSON.parse(localStorage.getItem("userData") || '{}');
+  const finalAspiranteId = aspiranteId || userData?.aspiranteId;
+  
+  if (!finalAspiranteId) {
+    setError('No se pudo identificar al aspirante');
+    setLoading(false);
+    return;
+  }
+  
+  setCurrentAspiranteId(finalAspiranteId);
+  obtenerUserId(finalAspiranteId);
+}, [aspiranteId]);
+```
+
+### User ID Mapping
+
+```javascript
+const obtenerUserId = async (idAspirante) => {
+  try {
+    // Check localStorage first
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    if (userData.usuarioId || userData.userId) {
+      setUserId(userData.usuarioId || userData.userId);
+      return;
+    }
+
+    // Fetch from API
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/buscar_aspirante/${idAspirante}`
+    );
+    setUserId(response.data);
+  } catch (error) {
+    setUserId(idAspirante); // Fallback
+  }
+};
+```
+
+### Fetch Applications
+
+```javascript
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/aspirante/${currentAspiranteId}`
+    );
+    
+    if (response.data && Array.isArray(response.data)) {
+      setPostulaciones(response.data);
+    } else {
+      setPostulaciones([]);
+    }
+  } catch (err) {
+    setError('Error al cargar tus postulaciones');
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+## Application Data Structure
+
+```javascript
+{
+  id_realizar: number,
+  fecha: string,
+  postulacion: {
+    id_postulacion: number,
+    estado: boolean | null, // null=pending, true=accepted, false=rejected
+    postulacion_empleo: {
+      id_postulacion_empleo: number,
+      titulo: string,
+      descripcion: string,
+      salario_estimado: number,
+      jornada: string,
+      turno: string,
+      fecha_limite: string,
+      id_paciente: number,
+      contratante: { nombre: string },
+      parroquia: { nombre: string }
+    }
+  }
+}
+```
+
+## Application States
+
+### Status Icons
+
+```javascript
+const getEstadoIcon = (estado) => {
+  if (estado === null) return <FaHourglassHalf className={styles.pendingIcon} />;
+  return estado 
+    ? <FaCheckCircle className={styles.acceptedIcon} /> 
+    : <FaTimesCircle className={styles.rejectedIcon} />;
+};
+```
+
+### Status Text Mapping
+
+| Estado Value | Display Text | CSS Class |
+|--------------|--------------|----------|
+| `null` | Pendiente | `.pending` |
+| `true` | Aceptada | `.accepted` |
+| `false` | Rechazada | `.rejected` |
+
+## Empty State
+
+```jsx
+if (postulaciones.length === 0) {
+  return (
+    <div className={styles.emptyContainer}>
+      <h1>¡Tu aventura laboral está por comenzar!</h1>
+      <h2>Aún no has realizado ninguna postulación</h2>
+      
+      <div className={styles.emptySteps}>
+        <div className={styles.step}>
+          <div className={styles.stepNumber}>1</div>
+          <h3>Explora oportunidades</h3>
+          <p>Descubre trabajos de cuidado geriátrico perfectos para ti</p>
+        </div>
+        {/* Steps 2 and 3 */}
+      </div>
+      
+      <Link to={`/moduloAspirante/trabajos?userId=${userId}`}>
+        Explorar trabajos disponibles
+      </Link>
+    </div>
+  );
+}
+```
+
+## Application Card Rendering
+
+```jsx
+<div className={styles.grid}>
+  {postulaciones.map((postulacion) => {
+    const empleo = postulacion.postulacion.postulacion_empleo;
+    const estado = postulacion.postulacion.estado;
+    const idPaciente = empleo.id_paciente;
+
+    return (
+      <div className={`${styles.card} ${getStatusClass(estado)}`}>
+        <div className={styles.cardHeader}>
+          <h2>{empleo.titulo}</h2>
+          <div className={styles.statusBadge}>
+            {getEstadoIcon(estado)}
+            {getStatusText(estado)}
+          </div>
+        </div>
+
+        <div className={styles.details}>
+          <div className={styles.detailItem}>
+            <FaCalendarAlt />
+            <span>Postulación: {formatoFecha(postulacion.fecha)}</span>
+          </div>
+          <div className={styles.detailItem}>
+            <FaBuilding />
+            <span>Contratante: {empleo.contratante?.nombre}</span>
+          </div>
+          <div className={styles.detailItem}>
+            <FaMapMarkerAlt />
+            <span>Ubicación: {empleo.parroquia?.nombre}</span>
+          </div>
+          <div className={styles.detailItem}>
+            <FaMoneyBillWave />
+            <span>Salario: ${empleo.salario_estimado}</span>
+          </div>
+        </div>
+
+        {estado === true && (
+          <button onClick={() => handleVerPaciente(idPaciente)}>
+            <FaUserInjured /> Ver datos del paciente
+          </button>
+        )}
+      </div>
+    );
+  })}
+</div>
+```
+
+## Date Formatting
+
+```javascript
+const formatoFecha = (fecha) => {
+  if (!fecha) return 'Fecha no disponible';
+  
+  try {
+    const options = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    };
+    return new Date(fecha).toLocaleDateString('es-ES', options);
+  } catch {
+    return 'Fecha inválida';
+  }
+};
+```
+
+## Patient Information Access
+
+Only available for accepted applications:
+
+```javascript
+const handleVerPaciente = (idPaciente) => {
+  navigate(`/moduloAspirante/ficha-paciente/${idPaciente}`);
+};
+
+// In render
+{estado === true && (
+  <button onClick={() => handleVerPaciente(idPaciente)}>
+    Ver datos del paciente
+  </button>
+)}
+```
+
+## Chatbot Integration
+
+```jsx
+import ChatbotInteligente from './ChatbotInteligente';
+
+const toggleChatbot = () => {
+  setChatbotAbierto(!chatbotAbierto);
+};
+
+<ChatbotInteligente
+  aspiranteId={currentAspiranteId}
+  isOpen={chatbotAbierto}
+  onToggle={toggleChatbot}
+/>
+```
+
+## Icons Used
+
+```javascript
+import {
+  FaCalendarAlt,
+  FaBuilding,
+  FaMapMarkerAlt,
+  FaMoneyBillWave,
+  FaClock,
+  FaSun,
+  FaClipboardList,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaHourglassHalf,
+  FaUserInjured,
+  FaEnvelope,
+  FaRobot
+} from 'react-icons/fa';
+```
+
+## Loading States
+
+```jsx
+if (loading || !currentAspiranteId || userId === null) {
+  return (
+    <>
+      <HeaderAspirante userId={userId} aspiranteId={currentAspiranteId} />
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner}></div>
+        <p>Cargando tus postulaciones...</p>
+      </div>
+    </>
+  );
+}
+```
+
+## Error Handling
+
+```jsx
+if (error) {
+  return (
+    <>
+      <HeaderAspirante userId={userId} aspiranteId={currentAspiranteId} />
+      <div className={styles.errorContainer}>
+        <div className={styles.errorIcon}>⚠️</div>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>
+          Reintentar
+        </button>
+      </div>
+    </>
+  );
+}
+```
+
+## Styling
+
+CSS Module: `src/components/ModuloAspirante/PostulacionesAspirante/PostulacionesAspirante.module.css`
+
+Key classes:
+- `.container` - Main container
+- `.grid` - Application cards grid
+- `.card` - Individual application card
+- `.pending`, `.accepted`, `.rejected` - Status-specific styles
+- `.emptyContainer` - Empty state container
+
+## Routing
+
+From `main.jsx:90-96`:
+
+```javascript
+<Route
+  path="/moduloAspirante/postulaciones/:userId"
+  element={
+    <RequireCV>
+      <PostulacionesAspirante />
+    </RequireCV>
+  }
+/>
+```
+
+## Related Components
+
+- [HeaderAspirante](/components/aspirante/overview#headeraspirante)
+- [ChatbotInteligente](/components/shared/chat#chatbot)
+- [VerFichaAceptada](/components/aspirante/applications#patient-view)

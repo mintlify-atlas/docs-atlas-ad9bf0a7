@@ -1,0 +1,550 @@
+---
+title: 'Notifications API'
+description: 'User notification system for aspirantes and contratantes'
+icon: 'bell'
+---
+
+## Overview
+
+The Notifications API manages system notifications for both caregivers (aspirantes) and contractors (contratantes). Notifications inform users about application statuses, messages, and system updates.
+
+## Base URL
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones
+```
+
+## Get Unread Notifications (Aspirante)
+
+### GET /api/notificaciones/aspirante/noleidas/{idAspirante}
+
+Retrieve count of unread notifications for a caregiver.
+
+**Location:** Used in **source/src/components/ModuloAspirante/HeaderAspirante/headerAspirante.jsx**
+
+```javascript
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/noleidas/${idAspirante}`
+);
+
+const unreadCount = response.data; // Returns number
+```
+
+<ResponseField name="response.data" type="number">
+  Count of unread notifications
+</ResponseField>
+
+## Get All Notifications (Aspirante)
+
+### GET /api/notificaciones/aspirante/{aspiranteId}
+
+Retrieve all notifications for a specific caregiver.
+
+**Location:** Used in **source/src/components/ModuloAspirante/HeaderAspirante/headerAspirante.jsx**
+
+<CodeGroup>
+```javascript Axios
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/${aspiranteId}`
+);
+
+const notificaciones = response.data;
+```
+
+```bash cURL
+curl 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/15'
+```
+</CodeGroup>
+
+### Response Format
+
+```json
+[
+  {
+    "id_notificacion": 1,
+    "mensaje": "Tu postulación ha sido aceptada",
+    "fecha": "2024-03-15T10:30:00Z",
+    "leida": false,
+    "tipo": "postulacion",
+    "aspirante": {
+      "idAspirante": 15
+    },
+    "referencia_id": 42
+  },
+  {
+    "id_notificacion": 2,
+    "mensaje": "Nuevo trabajo disponible en tu área",
+    "fecha": "2024-03-14T15:20:00Z",
+    "leida": true,
+    "tipo": "trabajo",
+    "aspirante": {
+      "idAspirante": 15
+    }
+  }
+]
+```
+
+## Get Unread Notifications (Contratante)
+
+### GET /api/notificaciones/contratante/noleidas/{userId}
+
+Retrieve count of unread notifications for a contractor.
+
+**Location:** Used in **source/src/components/ModuloContratante/HeaderContratante/headerContratante.jsx**
+
+```javascript
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/noleidas/${userId}`
+);
+
+const unreadCount = response.data;
+```
+
+## Mark Notifications as Read (Aspirante)
+
+### PUT /api/notificaciones/aspirante/marcar-leidas/{aspiranteId}
+
+Mark all notifications as read for a caregiver.
+
+**Location:** Used in **source/src/components/ModuloAspirante/HeaderAspirante/headerAspirante.jsx**
+
+```javascript
+await axios.put(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/marcar-leidas/${aspiranteId}`
+);
+
+console.log('All notifications marked as read');
+```
+
+## Create Message Notification
+
+### POST /api/notificaciones/crear-notificacion-mensaje
+
+Create a new notification for a chat message.
+
+**Location:** Used in **source/src/App.jsx**
+
+```javascript
+const response = await axios.post(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+  {
+    emisorId: senderId,
+    receptorId: receiverId,
+    mensaje: messageText,
+    tipo: 'mensaje'
+  }
+);
+```
+
+### Request Body
+
+<ParamField body="emisorId" type="number" required>
+  ID of the user sending the message
+</ParamField>
+
+<ParamField body="receptorId" type="number" required>
+  ID of the user receiving the message
+</ParamField>
+
+<ParamField body="mensaje" type="string" required>
+  Message content
+</ParamField>
+
+<ParamField body="tipo" type="string" required>
+  Notification type (e.g., "mensaje")
+</ParamField>
+
+## Notification Data Structure
+
+<ResponseField name="id_notificacion" type="number">
+  Unique notification ID
+</ResponseField>
+
+<ResponseField name="mensaje" type="string">
+  Notification message content
+</ResponseField>
+
+<ResponseField name="fecha" type="string">
+  ISO timestamp when notification was created
+</ResponseField>
+
+<ResponseField name="leida" type="boolean">
+  Whether the notification has been read
+</ResponseField>
+
+<ResponseField name="tipo" type="string">
+  Notification type: "postulacion", "trabajo", "mensaje", "sistema"
+</ResponseField>
+
+<ResponseField name="aspirante" type="object" optional>
+  Reference to aspirante for caregiver notifications
+</ResponseField>
+
+<ResponseField name="contratante" type="object" optional>
+  Reference to contratante for contractor notifications
+</ResponseField>
+
+<ResponseField name="referencia_id" type="number" optional>
+  ID of related entity (job, application, etc.)
+</ResponseField>
+
+## Notification Types
+
+<Tabs>
+  <Tab title="postulacion">
+    **Application Status Updates**
+    
+    Sent when:
+    - Application is accepted
+    - Application is rejected
+    - New application received (for contractors)
+    
+    ```json
+    {
+      "tipo": "postulacion",
+      "mensaje": "Tu postulación ha sido aceptada",
+      "referencia_id": 42
+    }
+    ```
+  </Tab>
+  
+  <Tab title="trabajo">
+    **Job-Related Notifications**
+    
+    Sent when:
+    - New job matches user profile
+    - Job deadline approaching
+    - Job filled or closed
+    
+    ```json
+    {
+      "tipo": "trabajo",
+      "mensaje": "Nuevo trabajo disponible en tu área",
+      "referencia_id": 15
+    }
+    ```
+  </Tab>
+  
+  <Tab title="mensaje">
+    **Chat Messages**
+    
+    Sent when:
+    - New chat message received
+    - Video call invitation
+    
+    ```json
+    {
+      "tipo": "mensaje",
+      "mensaje": "Tienes un nuevo mensaje de Juan Pérez",
+      "emisorId": 8
+    }
+    ```
+  </Tab>
+  
+  <Tab title="sistema">
+    **System Notifications**
+    
+    Sent when:
+    - Account updates
+    - Platform announcements
+    - Security alerts
+    
+    ```json
+    {
+      "tipo": "sistema",
+      "mensaje": "Tu perfil ha sido actualizado exitosamente"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Implementation in Header
+
+### Aspirante Header
+
+**Location:** `source/src/components/ModuloAspirante/HeaderAspirante/headerAspirante.jsx`
+
+```javascript
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const HeaderAspirante = ({ aspiranteId }) => {
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
+
+  // Load unread count
+  useEffect(() => {
+    const cargarNotificacionesNoLeidas = async () => {
+      try {
+        const response = await axios.get(
+          `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/noleidas/${aspiranteId}`
+        );
+        setNotificacionesNoLeidas(response.data);
+      } catch (error) {
+        console.error('Error cargando notificaciones:', error);
+      }
+    };
+
+    if (aspiranteId) {
+      cargarNotificacionesNoLeidas();
+      // Poll every 30 seconds
+      const interval = setInterval(cargarNotificacionesNoLeidas, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [aspiranteId]);
+
+  // Load all notifications
+  const cargarNotificaciones = async () => {
+    try {
+      const response = await axios.get(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/${aspiranteId}`
+      );
+      setNotificaciones(response.data);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  // Mark all as read
+  const marcarComoLeidas = async () => {
+    try {
+      await axios.put(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/aspirante/marcar-leidas/${aspiranteId}`
+      );
+      setNotificacionesNoLeidas(0);
+      // Reload notifications
+      await cargarNotificaciones();
+    } catch (error) {
+      console.error('Error marcando como leídas:', error);
+    }
+  };
+
+  return (
+    <header>
+      <button onClick={cargarNotificaciones}>
+        <i className="bell-icon"></i>
+        {notificacionesNoLeidas > 0 && (
+          <span className="badge">{notificacionesNoLeidas}</span>
+        )}
+      </button>
+    </header>
+  );
+};
+```
+
+### Contratante Header
+
+**Location:** `source/src/components/ModuloContratante/HeaderContratante/headerContratante.jsx`
+
+```javascript
+const HeaderContratante = ({ userId }) => {
+  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
+
+  useEffect(() => {
+    const cargarNotificaciones = async () => {
+      try {
+        const response = await axios.get(
+          `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/noleidas/${userId}`
+        );
+        setNotificacionesNoLeidas(response.data);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+
+    if (userId) {
+      cargarNotificaciones();
+      const interval = setInterval(cargarNotificaciones, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userId]);
+
+  return (
+    <header>
+      <div className="notification-bell">
+        <i className="bell-icon"></i>
+        {notificacionesNoLeidas > 0 && (
+          <span className="badge">{notificacionesNoLeidas}</span>
+        )}
+      </div>
+    </header>
+  );
+};
+```
+
+## Notification Badge UI
+
+```javascript
+const NotificationBadge = ({ count }) => {
+  if (count === 0) return null;
+  
+  return (
+    <span className="notification-badge">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+};
+```
+
+## Date Formatting
+
+```javascript
+const formatNotificationDate = (fecha) => {
+  const now = new Date();
+  const notifDate = new Date(fecha);
+  const diff = now - notifDate;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Ahora';
+  if (minutes < 60) return `Hace ${minutes} min`;
+  if (hours < 24) return `Hace ${hours} h`;
+  if (days < 7) return `Hace ${days} d`;
+  
+  return notifDate.toLocaleDateString('es-ES', {
+    month: 'short',
+    day: 'numeric'
+  });
+};
+```
+
+## Polling Strategy
+
+Notifications are typically polled every 30 seconds:
+
+```javascript
+useEffect(() => {
+  const loadNotifications = async () => {
+    // Load logic
+  };
+
+  loadNotifications(); // Initial load
+  
+  const interval = setInterval(loadNotifications, 30000); // Poll every 30s
+  
+  return () => clearInterval(interval); // Cleanup
+}, [userId]);
+```
+
+<Tip>
+  For real-time notifications, consider implementing WebSocket connections instead of polling.
+</Tip>
+
+## Usage Examples
+
+### Display Notification List
+
+```javascript
+const NotificationList = ({ notificaciones, onMarkAsRead }) => {
+  return (
+    <div className="notification-list">
+      {notificaciones.map(notif => (
+        <div 
+          key={notif.id_notificacion}
+          className={`notification-item ${!notif.leida ? 'unread' : ''}`}
+        >
+          <div className="notification-icon">
+            {getIconForType(notif.tipo)}
+          </div>
+          <div className="notification-content">
+            <p>{notif.mensaje}</p>
+            <span className="notification-date">
+              {formatNotificationDate(notif.fecha)}
+            </span>
+          </div>
+          {!notif.leida && (
+            <span className="unread-dot"></span>
+          )}
+        </div>
+      ))}
+      
+      {notificaciones.some(n => !n.leida) && (
+        <button onClick={onMarkAsRead}>
+          Marcar todas como leídas
+        </button>
+      )}
+    </div>
+  );
+};
+
+const getIconForType = (tipo) => {
+  switch (tipo) {
+    case 'postulacion': return '💼';
+    case 'trabajo': return '👥';
+    case 'mensaje': return '💬';
+    case 'sistema': return '⚙️';
+    default: return '🔔';
+  }
+};
+```
+
+### Send Notification on Application
+
+When a contractor accepts/rejects an application:
+
+```javascript
+const handleApplicationStatus = async (idPostulacion, accepted) => {
+  // Update application status
+  await updatePostulacion(idPostulacion, { estado: accepted });
+  
+  // Send notification to aspirante
+  const mensaje = accepted 
+    ? 'Tu postulación ha sido aceptada' 
+    : 'Tu postulación no fue seleccionada';
+  
+  await axios.post(
+    'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+    {
+      emisorId: contratanteId,
+      receptorId: aspiranteId,
+      mensaje,
+      tipo: 'postulacion'
+    }
+  );
+};
+```
+
+## Endpoints Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notificaciones/aspirante/noleidas/{id}` | Get unread count (caregiver) |
+| GET | `/api/notificaciones/aspirante/{id}` | Get all notifications (caregiver) |
+| GET | `/api/notificaciones/contratante/noleidas/{id}` | Get unread count (contractor) |
+| PUT | `/api/notificaciones/aspirante/marcar-leidas/{id}` | Mark all as read (caregiver) |
+| POST | `/api/notificaciones/crear-notificacion-mensaje` | Create message notification |
+
+## Related APIs
+
+<CardGroup cols={2}>
+  <Card title="Applications" icon="file-contract" href="/api/applications">
+    Application status notifications
+  </Card>
+  <Card title="Chat" icon="comments" href="/api/chat">
+    Message notifications
+  </Card>
+  <Card title="Jobs" icon="briefcase" href="/api/jobs">
+    Job-related notifications
+  </Card>
+  <Card title="Users" icon="users" href="/api/users">
+    User profile for notifications
+  </Card>
+</CardGroup>
+
+<Info>
+  **Best Practices:**
+  - Poll notifications every 30-60 seconds for near real-time updates
+  - Display unread count in header/navigation
+  - Group notifications by type or date
+  - Provide clear visual indicators for unread items
+  - Allow bulk "mark as read" operations
+</Info>
+
+<Warning>
+  The current implementation uses polling. For production with many users, consider:
+  - WebSocket connections for real-time push notifications
+  - Server-sent events (SSE) as an alternative
+  - Rate limiting on polling endpoints
+  - Caching strategies to reduce database load
+</Warning>

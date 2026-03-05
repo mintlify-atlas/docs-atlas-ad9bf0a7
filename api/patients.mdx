@@ -1,0 +1,590 @@
+---
+title: 'Patients API'
+description: 'Patient management and medical records (fichas) API endpoints'
+icon: 'hospital-user'
+---
+
+## Overview
+
+The Patients API manages patient records, including basic patient information and comprehensive medical records (fichas) with medications, allergies, interests, and conversation topics.
+
+## Base URLs
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/pacientes
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/fichas
+```
+
+## Patients Endpoints
+
+### Service Location
+
+**File:** `source/src/servicios/paciente.js:1`
+
+### GET /api/pacientes
+
+Retrieve all patients in the system.
+
+<CodeGroup>
+```javascript Service
+import { getPacientes } from './servicios/paciente';
+
+try {
+  const pacientes = await getPacientes();
+  console.log('All patients:', pacientes);
+} catch (error) {
+  console.error('Error:', error);
+}
+```
+
+```javascript Implementation
+export const getPacientes = async () => {
+  try {
+    const response = await axios.get(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/pacientes'
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener los pacientes:', error);
+    throw error;
+  }
+};
+```
+
+```bash cURL
+curl 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/pacientes'
+```
+</CodeGroup>
+
+### GET /api/pacientes/{id}
+
+Retrieve a specific patient by ID.
+
+```javascript
+import { getPacienteById } from './servicios/paciente';
+
+try {
+  const paciente = await getPacienteById(5);
+  console.log('Patient:', paciente);
+} catch (error) {
+  console.error('Error:', error);
+}
+```
+
+### POST /api/pacientes
+
+Create a new patient record.
+
+```javascript
+import { createPaciente } from './servicios/paciente';
+
+const pacienteData = {
+  nombres: 'Carlos',
+  apellidos: 'Rodríguez',
+  fecha_nacimiento: '1945-08-20',
+  genero: 'Masculino',
+  cedula: '1700123456',
+  telefono_contacto: '0987654321',
+  direccion: 'Av. Principal 123',
+  contratante: { idContratante: 8 }
+};
+
+try {
+  const newPaciente = await createPaciente(pacienteData);
+  console.log('Patient created:', newPaciente);
+} catch (error) {
+  console.error('Error:', error);
+}
+```
+
+### PUT /api/pacientes/{id}
+
+Update an existing patient record.
+
+```javascript
+import { updatePaciente } from './servicios/paciente';
+
+const updatedData = {
+  telefono_contacto: '0999888777',
+  direccion: 'Nueva dirección 456'
+};
+
+try {
+  const updated = await updatePaciente(5, updatedData);
+  console.log('Patient updated:', updated);
+} catch (error) {
+  console.error('Error:', error);
+}
+```
+
+### DELETE /api/pacientes/{id}
+
+Delete a patient record.
+
+```javascript
+import { deletePaciente } from './servicios/paciente';
+
+try {
+  await deletePaciente(5);
+  console.log('Patient deleted successfully');
+} catch (error) {
+  console.error('Error:', error);
+}
+```
+
+## Patient Data Structure
+
+<ResponseField name="id_paciente" type="number">
+  Unique patient identifier
+</ResponseField>
+
+<ResponseField name="nombres" type="string">
+  Patient's first name(s)
+</ResponseField>
+
+<ResponseField name="apellidos" type="string">
+  Patient's last name(s)
+</ResponseField>
+
+<ResponseField name="fecha_nacimiento" type="string">
+  Birth date (ISO format)
+</ResponseField>
+
+<ResponseField name="genero" type="string">
+  Gender: "Masculino" or "Femenino"
+</ResponseField>
+
+<ResponseField name="cedula" type="string">
+  National ID number
+</ResponseField>
+
+<ResponseField name="telefono_contacto" type="string">
+  Contact phone number
+</ResponseField>
+
+<ResponseField name="direccion" type="string">
+  Home address
+</ResponseField>
+
+<ResponseField name="contratante" type="object">
+  Reference to the contractor responsible for the patient
+  
+  <Expandable title="contratante properties">
+    <ResponseField name="idContratante" type="number">
+      Contractor ID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Ficha (Medical Record) Endpoints
+
+### Service Location
+
+**File:** `source/src/servicios/ficha.js:1`
+
+### GET /api/fichas
+
+Retrieve all medical records.
+
+```javascript
+import { getFichas } from './servicios/ficha';
+
+try {
+  const fichas = await getFichas();
+  console.log('All fichas:', fichas);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### GET /api/fichas/{id}
+
+Retrieve a specific medical record by ID.
+
+```javascript
+import { getFichaById } from './servicios/ficha';
+
+try {
+  const ficha = await getFichaById(10);
+  console.log('Ficha:', ficha);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### POST /api/fichas
+
+Create a new medical record.
+
+**Component:** Used in **source/src/components/FichaPaciente/ficha.jsx:454**
+
+```javascript
+import { createFicha } from './servicios/ficha';
+
+const fichaData = {
+  diagnostico_me_actual: 'Hipertensión arterial',
+  condiciones_fisicas: 'Movilidad reducida',
+  estado_animo: 'normal',
+  comunicacion: false,
+  otras_comunicaciones: '',
+  caidas: 'media',
+  tipo_dieta: 'hiposodica',
+  alimentacion_asistida: 'No requiere',
+  hora_levantarse: '07:00',
+  hora_acostarse: '21:00',
+  frecuencia_siestas: '1 vez después del almuerzo',
+  frecuencia_baño: 'Interdiario',
+  rutina_medica: 'Control de presión cada 8 horas',
+  usapanal: false,
+  acompañado: true,
+  observaciones: 'Requiere asistencia para caminar',
+  fecha_registro: '2024-03-15',
+  paciente: { id_paciente: 5 }
+};
+
+try {
+  const nuevaFicha = await createFicha(fichaData);
+  console.log('Ficha created:', nuevaFicha);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### PUT /api/fichas/{id}
+
+Update an existing medical record.
+
+```javascript
+import { updateFicha } from './servicios/ficha';
+
+const updatedData = {
+  diagnostico_me_actual: 'Hipertensión controlada',
+  rutina_medica: 'Control de presión cada 12 horas'
+};
+
+try {
+  const updated = await updateFicha(10, updatedData);
+  console.log('Ficha updated:', updated);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### DELETE /api/fichas/{id}
+
+Delete a medical record.
+
+```javascript
+import { deleteFicha } from './servicios/ficha';
+
+try {
+  await deleteFicha(10);
+  console.log('Ficha deleted successfully');
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+### GET /api/fichas/paciente/{idPaciente}
+
+Retrieve all medical records for a specific patient.
+
+```javascript
+import { getFichasByPaciente } from './servicios/ficha';
+
+try {
+  const fichas = await getFichasByPaciente(5);
+  console.log('Patient fichas:', fichas);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```
+
+## Ficha Data Structure
+
+See [Patient Records Feature](/features/patient-records) for detailed field descriptions.
+
+<ResponseField name="id_ficha_paciente" type="number">
+  Unique medical record ID
+</ResponseField>
+
+<ResponseField name="diagnostico_me_actual" type="string">
+  Current medical diagnosis
+</ResponseField>
+
+<ResponseField name="condiciones_fisicas" type="string">
+  Physical conditions
+</ResponseField>
+
+<ResponseField name="estado_animo" type="string">
+  Mood state: alegre, triste, ansioso, deprimido, irritable, calmado, agitado, apático, normal
+</ResponseField>
+
+<ResponseField name="comunicacion" type="boolean">
+  Has communication difficulties
+</ResponseField>
+
+<ResponseField name="otras_comunicaciones" type="string">
+  Communication method description (if applicable)
+</ResponseField>
+
+<ResponseField name="caidas" type="string">
+  Fall risk level: alta, media, baja
+</ResponseField>
+
+<ResponseField name="tipo_dieta" type="string">
+  Diet type: normal, blanda, liquida, diabetica, hiposodica, hipoproteica, triturada
+</ResponseField>
+
+<ResponseField name="alimentacion_asistida" type="string">
+  Assisted feeding requirements
+</ResponseField>
+
+<ResponseField name="hora_levantarse" type="string">
+  Wake-up time (HH:MM format)
+</ResponseField>
+
+<ResponseField name="hora_acostarse" type="string">
+  Bedtime (HH:MM format)
+</ResponseField>
+
+<ResponseField name="frecuencia_siestas" type="string">
+  Nap frequency
+</ResponseField>
+
+<ResponseField name="frecuencia_baño" type="string">
+  Bath frequency
+</ResponseField>
+
+<ResponseField name="rutina_medica" type="string">
+  Medical routine description
+</ResponseField>
+
+<ResponseField name="usapanal" type="boolean">
+  Uses diapers
+</ResponseField>
+
+<ResponseField name="acompañado" type="boolean">
+  Requires accompaniment
+</ResponseField>
+
+<ResponseField name="observaciones" type="string">
+  Additional observations
+</ResponseField>
+
+<ResponseField name="fecha_registro" type="string">
+  Registration date (YYYY-MM-DD)
+</ResponseField>
+
+<ResponseField name="paciente" type="object">
+  Reference to patient
+</ResponseField>
+
+## Related Endpoints
+
+The ficha system integrates with additional endpoints for comprehensive care management:
+
+### Medications
+
+```
+GET    /api/medicamentos/ficha/{idFicha}
+POST   /api/medicamentos
+PUT    /api/medicamentos/{id}
+DELETE /api/medicamentos/{id}
+```
+
+See [Patient Records - Medications](/features/patient-records#medications-medicamentos)
+
+### Allergies
+
+```
+GET    /api/alergias/listar
+GET    /api/alergias/listar/{id}
+POST   /api/alergias/crear
+PUT    /api/alergias/actualizar/{id}
+DELETE /api/alergias/eliminar/{id}
+```
+
+See [Patient Records - Allergies](/features/patient-records#allergies-alergias)
+
+### Personal Interests
+
+```
+GET    /api/intereses/ficha/{idFicha}
+POST   /api/intereses
+PUT    /api/intereses/{id}
+DELETE /api/intereses/{id}
+```
+
+See [Patient Records - Interests](/features/patient-records#personal-interests-intereses)
+
+### Conversation Topics
+
+```
+GET    /api/temas?IdFicha={idFicha}
+POST   /api/temas
+PUT    /api/temas/{id}
+DELETE /api/temas/{id}
+```
+
+See [Patient Records - Topics](/features/patient-records#conversation-topics-temas)
+
+## Complete Workflow Example
+
+### Creating a Complete Patient Record
+
+<Steps>
+  <Step title="Create Patient">
+    ```javascript
+    const paciente = await createPaciente({
+      nombres: 'Carlos',
+      apellidos: 'Rodríguez',
+      fecha_nacimiento: '1945-08-20',
+      genero: 'Masculino',
+      cedula: '1700123456',
+      telefono_contacto: '0987654321',
+      contratante: { idContratante: 8 }
+    });
+    
+    const idPaciente = paciente.id_paciente;
+    ```
+  </Step>
+  
+  <Step title="Create Ficha">
+    ```javascript
+    const ficha = await createFicha({
+      diagnostico_me_actual: 'Hipertensión arterial',
+      condiciones_fisicas: 'Movilidad reducida',
+      estado_animo: 'normal',
+      caidas: 'media',
+      tipo_dieta: 'hiposodica',
+      // ... other fields
+      paciente: { id_paciente: idPaciente }
+    });
+    
+    const idFicha = ficha.id_ficha_paciente;
+    ```
+  </Step>
+  
+  <Step title="Add Medications">
+    ```javascript
+    import { createMedicamento } from './servicios/medicacionService';
+    
+    await createMedicamento({
+      nombre_medicamento: 'Enalapril',
+      dosis: '10mg',
+      frecuencia: 'Cada 12 horas',
+      via_administracion: 'Oral',
+      ficha_paciente: { id_ficha_paciente: idFicha }
+    });
+    ```
+  </Step>
+  
+  <Step title="Add Allergies">
+    ```javascript
+    import { createAlergia } from './servicios/alergiasService';
+    
+    await createAlergia({
+      tipo_alergia: 'Medicamento',
+      nombre_alergia: 'Penicilina',
+      severidad: 'Alta',
+      ficha_paciente: { id_ficha_paciente: idFicha }
+    });
+    ```
+  </Step>
+  
+  <Step title="Add Interests">
+    ```javascript
+    import { createInteres } from './servicios/interesesPersonalesService';
+    
+    await createInteres({
+      interes: 'Música clásica',
+      descripcion: 'Disfruta de ópera y piano',
+      ficha_paciente: { id_ficha_paciente: idFicha }
+    });
+    ```
+  </Step>
+</Steps>
+
+## Access Control
+
+Patient data access is restricted based on application status:
+
+```javascript
+// Only aspirantes with accepted applications can view patient data
+if (postulacion.estado !== true) {
+  toast.warning('Debes tener una postulación aceptada para ver los datos del paciente');
+  return;
+}
+
+// Navigate to patient ficha
+navigate(`/moduloAspirante/ficha-paciente/${idPaciente}`);
+```
+
+**Location:** Used in **source/src/components/ModuloAspirante/PostulacionesAspirante/PostulacionesAspirante.jsx:330**
+
+## Error Handling
+
+All patient and ficha services include comprehensive error handling:
+
+```javascript
+try {
+  const ficha = await getFichaById(id);
+  return ficha;
+} catch (error) {
+  throw new Error('Error al obtener ficha: ' + error.message);
+}
+```
+
+## Endpoints Summary
+
+### Patients
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/pacientes` | Get all patients |
+| GET | `/api/pacientes/{id}` | Get patient by ID |
+| POST | `/api/pacientes` | Create patient |
+| PUT | `/api/pacientes/{id}` | Update patient |
+| DELETE | `/api/pacientes/{id}` | Delete patient |
+
+### Fichas
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/fichas` | Get all fichas |
+| GET | `/api/fichas/{id}` | Get ficha by ID |
+| POST | `/api/fichas` | Create ficha |
+| PUT | `/api/fichas/{id}` | Update ficha |
+| DELETE | `/api/fichas/{id}` | Delete ficha |
+| GET | `/api/fichas/paciente/{id}` | Get fichas for patient |
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Patient Records" icon="folder-medical" href="/features/patient-records">
+    Complete ficha system documentation
+  </Card>
+  <Card title="Applications" icon="file-contract" href="/api/applications">
+    Job applications for patient care
+  </Card>
+  <Card title="Jobs API" icon="briefcase" href="/api/jobs">
+    Jobs linked to patients
+  </Card>
+  <Card title="Users API" icon="users" href="/api/users">
+    Contractor management
+  </Card>
+</CardGroup>
+
+<Info>
+  **Multi-Step Process:** Creating a complete patient record involves multiple API calls across different endpoints (patient, ficha, medications, allergies, interests, topics).
+</Info>
+
+<Warning>
+  Patient medical information is sensitive. Ensure:
+  - Proper authentication before access
+  - Application acceptance verification
+  - HIPAA/privacy compliance in production
+  - Secure data transmission (HTTPS)
+  - Audit logging for data access
+</Warning>

@@ -1,0 +1,386 @@
+---
+title: 'Notification System'
+description: 'Real-time notification management and display'
+---
+
+# Notification System
+
+Implementation of the notification system for both aspirants and employers.
+
+## Architecture
+
+Notifications are managed differently for aspirants and employers, with dedicated endpoints and UI components.
+
+## Notification Types
+
+### For Aspirants
+
+```javascript
+const getNotificationType = (descripcion) => {
+  const desc = descripcion.toLowerCase();
+  
+  if (desc.includes('aceptada') || desc.includes('felicitaciones')) {
+    return 'success';
+  }
+  if (desc.includes('rechazada') || desc.includes('lamentamos')) {
+    return 'warning';
+  }
+  if (desc.includes('💬') || desc.includes('nuevo mensaje')) {
+    return 'info';
+  }
+  
+  return 'info';
+};
+```
+
+### For Employers
+
+```javascript
+const getNotificationType = (descripcion) => {
+  const desc = descripcion.toLowerCase();
+  
+  if (desc.includes('💬') || desc.includes('nuevo mensaje')) {
+    return 'info';
+  }
+  if (desc.includes('postulación') || desc.includes('postulacion')) {
+    return 'info';
+  }
+  if (desc.includes('trabajo completado')) {
+    return 'success';
+  }
+  
+  return 'info';
+};
+```
+
+## Notification Icons
+
+```javascript
+const getNotificationIcon = (descripcion) => {
+  const desc = descripcion.toLowerCase();
+  
+  // Message notifications
+  if (desc.includes('💬') || desc.includes('nuevo mensaje')) return '💬';
+  
+  // For aspirants
+  if (desc.includes('lamentamos')) return '❌';
+  if (desc.includes('felicitaciones')) return '✅';
+  
+  // For employers
+  if (desc.includes('postulación') || desc.includes('postulacion')) return '👤';
+  if (desc.includes('trabajo completado')) return '✅';
+  
+  return 'ℹ️';
+};
+```
+
+## Time Formatting
+
+```javascript
+const getTimeAgo = (fecha) => {
+  if (!fecha) return 'Fecha no disponible';
+  
+  const now = new Date();
+  const notificationDate = new Date(fecha);
+  const diffMs = now - notificationDate;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Ahora mismo';
+  if (diffMins < 60) return `Hace ${diffMins} min`;
+  if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+  if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+  return notificationDate.toLocaleDateString('es-ES');
+};
+```
+
+## Notification Status Mapping
+
+```javascript
+const getStatusFromDescription = (descripcion) => {
+  const desc = descripcion.toLowerCase();
+  
+  if (desc.includes('postulación') || desc.includes('postulacion')) return 'postulacion';
+  if (desc.includes('trabajo') || desc.includes('completado')) return 'trabajo';
+  if (desc.includes('calificación') || desc.includes('calificacion')) return 'calificacion';
+  if (desc.includes('pago') || desc.includes('dinero')) return 'pago';
+  
+  return 'general';
+};
+```
+
+## Employer Notification System
+
+Implemented in `ModuloContratante` component.
+
+### Fetch Unread Count
+
+```javascript
+useEffect(() => {
+  const fetchNoLeidas = async () => {
+    if (!contratanteId) return;
+    
+    try {
+      const endpoint = `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/noleidas/${contratanteId}`;
+      const res = await axios.get(endpoint);
+      const nuevasCantidad = res.data.length;
+      
+      if (nuevasCantidad > cantidadNoLeidas && cantidadNoLeidas > 0) {
+        setCantidadNoLeidas(nuevasCantidad);
+        // Trigger badge animation
+        const badge = document.querySelector(`.${styles.badgeNotificacionContratante}`);
+        if (badge) {
+          badge.classList.add(styles.new);
+          setTimeout(() => badge.classList.remove(styles.new), 500);
+        }
+      } else {
+        setCantidadNoLeidas(nuevasCantidad);
+      }
+    } catch (error) {
+      console.error("Error al cargar notificaciones:", error);
+    }
+  };
+  
+  fetchNoLeidas();
+  
+  // Dynamic intervals: more frequent if chat is active
+  const intervalo = usuarioChat ? 3000 : 30000; // 3s if chat, 30s otherwise
+  const interval = setInterval(fetchNoLeidas, intervalo);
+  
+  return () => clearInterval(interval);
+}, [contratanteId, showPanelNotificaciones, cantidadNoLeidas, usuarioChat]);
+```
+
+### Open Notifications Panel
+
+```javascript
+const handleAbrirNotificaciones = async () => {
+  if (!contratanteId) return;
+  
+  try {
+    // Mark all as read
+    await axios.put(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/marcar-leidas/${contratanteId}`
+    );
+    
+    // Fetch all notifications
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/${contratanteId}`
+    );
+    
+    // Sort by date: most recent first
+    const notificacionesOrdenadas = response.data.sort((a, b) => {
+      const fechaA = new Date(a.fecha);
+      const fechaB = new Date(b.fecha);
+      return fechaB - fechaA;
+    });
+    
+    setNotificaciones(notificacionesOrdenadas);
+    setCantidadNoLeidas(0);
+  } catch (error) {
+    console.error("Error al obtener notificaciones:", error);
+  } finally {
+    setShowPanelNotificaciones(true);
+  }
+};
+```
+
+### Notifications Panel UI
+
+```jsx
+<div className={`${styles.panelNotificacionesContratante} ${showPanelNotificaciones ? styles.open : ''}`}>
+  <div className={styles.headerNotificacionesContratante}>
+    <div className={styles.headerContentContratante}>
+      <div className={styles.tituloNotificacionesContratante}>Notificaciones</div>
+      <button className={styles.botonCerrarContratante} onClick={handleCerrarNotificaciones}>
+        ✕
+      </button>
+    </div>
+    {cantidadNoLeidas > 0 && (
+      <div className={styles.estadisticasContratante}>
+        {cantidadNoLeidas} nueva{cantidadNoLeidas > 1 ? 's' : ''} notificación{cantidadNoLeidas > 1 ? 'es' : ''}
+      </div>
+    )}
+  </div>
+  
+  <ul className={styles.listaNotificacionesContratante}>
+    {notificaciones.length === 0 ? (
+      <li className={styles.sinNotificacionesContratante}>
+        No tienes notificaciones aún.
+      </li>
+    ) : (
+      [...notificaciones]
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .map((noti, index) => {
+          const type = getNotificationType(noti.descripcion);
+          const timeAgo = getTimeAgo(noti.fecha);
+          const icon = getNotificationIcon(noti.descripcion);
+          const status = getStatusFromDescription(noti.descripcion);
+          const isRead = noti.leida !== false;
+          
+          return (
+            <li
+              key={noti.id_notificaciones}
+              className={`${styles.itemNotificacionContratante} ${styles[type]} ${styles[status]} ${!isRead ? styles.noLeida : styles.leida}`}
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <div className={styles.contenidoNotificacionContratante}>
+                <div className={`${styles.iconoNotificacionContratante} ${styles[type]}`}>
+                  {icon}
+                </div>
+                <div className={styles.textoNotificacionContratante}>
+                  <div className={styles.descripcionContratante}>
+                    <strong>{noti.descripcion}</strong>
+                    {!isRead && (
+                      <span className={styles.marcaNuevaContratante}>● Nueva</span>
+                    )}
+                  </div>
+                  <div className={styles.fechaNotificacionContratante}>
+                    <em>{timeAgo}</em>
+                  </div>
+                </div>
+              </div>
+            </li>
+          );
+        })
+    )}
+  </ul>
+</div>
+```
+
+### Close with Escape Key
+
+```javascript
+useEffect(() => {
+  const handleEscape = (e) => {
+    if (e.key === 'Escape' && showPanelNotificaciones) {
+      handleCerrarNotificaciones();
+    }
+  };
+  
+  document.addEventListener('keydown', handleEscape);
+  return () => document.removeEventListener('keydown', handleEscape);
+}, [showPanelNotificaciones]);
+```
+
+### Overlay for Closing
+
+```jsx
+{showPanelNotificaciones && (
+  <div
+    className={`${styles.overlayNotificacionesContratante} ${showPanelNotificaciones ? styles.active : ''}`}
+    onClick={handleCerrarNotificaciones}
+  />
+)}
+```
+
+## Message Notifications
+
+Sent from chat component when sending messages:
+
+```javascript
+const enviarNotificacionMensaje = async (remitenteId, destinatarioId, contenido) => {
+  try {
+    if (typeof remitenteId !== 'number' || typeof destinatarioId !== 'number') {
+      throw new Error('IDs deben ser números');
+    }
+    
+    const payload = {
+      remitenteId: remitenteId,
+      destinatarioId: destinatarioId,
+      contenido: contenido,
+      tipo: "MENSAJE_DIRECTO"
+    };
+    
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 10000
+      }
+    );
+    
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Notificación enviada');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Error notificación:', error);
+    return false;
+  }
+};
+```
+
+## API Endpoints
+
+### Employer Notifications
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/notificaciones/contratante/noleidas/{id}` | GET | Get unread count |
+| `/api/notificaciones/contratante/{id}` | GET | Get all notifications |
+| `/api/notificaciones/contratante/marcar-leidas/{id}` | PUT | Mark all as read |
+
+### Message Notifications
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/notificaciones/crear-notificacion-mensaje` | POST | Create message notification |
+
+## Notification Data Structure
+
+```javascript
+{
+  id_notificaciones: number,
+  descripcion: string,
+  fecha: string (ISO datetime),
+  leida: boolean,
+  tipo: string,
+  // For message notifications
+  remitenteId?: number,
+  destinatarioId?: number,
+  contenido?: string
+}
+```
+
+## Badge Component
+
+Displayed in headers:
+
+```jsx
+<HeaderContratante
+  userId={contratanteId}
+  onOpenMensajes={handleAbrirPanelUsuarios}
+  onOpenNotificaciones={handleAbrirNotificaciones}
+  notificacionesNoLeidas={cantidadNoLeidas}
+/>
+```
+
+Badge rendering:
+
+```jsx
+{notificacionesNoLeidas > 0 && (
+  <span className={styles.badgeNotificacionContratante}>
+    {notificacionesNoLeidas > 99 ? '99+' : notificacionesNoLeidas}
+  </span>
+)}
+```
+
+## Styling
+
+CSS Module: `src/components/ModuloContratante/NotificacionesContratante.module.css`
+
+Key classes:
+- `.panelNotificacionesContratante` - Main panel
+- `.overlayNotificacionesContratante` - Backdrop overlay
+- `.itemNotificacionContratante` - Individual notification
+- `.noLeida` - Unread notification style
+- `.badgeNotificacionContratante` - Notification badge
+- `.new` - Animation class for new notifications

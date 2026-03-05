@@ -1,0 +1,483 @@
+---
+title: 'Chat System'
+description: 'WebSocket-based real-time chat component'
+---
+
+# Chat Component (App.jsx)
+
+Real-time WebSocket-based chat system for communication between aspirants and employers.
+
+## Component Location
+
+`src/App.jsx`
+
+## Component Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `nombrePropio` | string/number | `"1"` | Current user's ID |
+| `destinatarioProp` | string/number | `"2"` | Recipient user's ID |
+| `onCerrarChat` | function | - | Close chat callback |
+| `nombreUsuarioActual` | string | null | Current user's display name |
+| `nombreDestinatario` | string | null | Recipient's display name |
+| `datosDestinatario` | object | null | Full recipient data object |
+
+## State Management
+
+```javascript
+const [mensaje, setMensaje] = useState("");
+const [mensajes, setMensajes] = useState([]);
+const [conectado, setConectado] = useState(false);
+
+const mensajesIds = useRef(new Set());
+const mensajesEndRef = useRef(null);
+const stompRef = useRef(null);
+const isConnecting = useRef(false);
+```
+
+| State | Type | Purpose |
+|-------|------|--------|
+| `mensaje` | string | Current message being typed |
+| `mensajes` | array | Chat message history |
+| `conectado` | boolean | WebSocket connection status |
+| `mensajesIds` | Set | Track message IDs to prevent duplicates |
+| `stompRef` | STOMP Client | WebSocket client reference |
+
+## ID Normalization & Validation
+
+```javascript
+const normalizarId = useCallback((id) => {
+  if (id === null || id === undefined) return null;
+  if (typeof id === 'number') return id;
+  const parsed = parseInt(id, 10);
+  return isNaN(parsed) ? id : parsed;
+}, []);
+
+const validarYNormalizarIds = useCallback((nombrePropio, destinatarioProp, contexto = '') => {
+  const usuarioActualId = normalizarId(nombrePropio);
+  const destinatarioId = normalizarId(destinatarioProp);
+  
+  // Critical validations
+  if (usuarioActualId === null || destinatarioId === null) {
+    return { valido: false, error: 'IDs no pueden ser nulos' };
+  }
+  
+  if (isNaN(usuarioActualId) || isNaN(destinatarioId)) {
+    return { valido: false, error: 'IDs deben ser números válidos' };
+  }
+  
+  if (usuarioActualId <= 0 || destinatarioId <= 0) {
+    return { valido: false, error: 'IDs deben ser positivos' };
+  }
+  
+  if (usuarioActualId === destinatarioId) {
+    return { valido: false, error: 'Usuario no puede chatear consigo mismo' };
+  }
+  
+  return {
+    valido: true,
+    usuarioActualId: Number(usuarioActualId),
+    destinatarioId: Number(destinatarioId),
+    error: null
+  };
+}, [normalizarId]);
+```
+
+## Conversation Channel
+
+```javascript
+const canalConversacion = useMemo(() => {
+  if (!usuarioActual || !destinatario) return null;
+  const menor = Math.min(usuarioActual, destinatario);
+  const mayor = Math.max(usuarioActual, destinatario);
+  return `/tema/conversacion/${menor}-${mayor}`;
+}, [usuarioActual, destinatario]);
+```
+
+## Message History Loading
+
+```javascript
+useEffect(() => {
+  if (!usuarioActual || !destinatario) return;
+  
+  const cargarHistorial = async () => {
+    try {
+      const response = await fetch(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chat/historial?aspiranteId=${usuarioActual}&contratistaId=${destinatario}`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Clear and process unique messages
+        mensajesIds.current.clear();
+        const mensajesUnicos = data.filter(m => {
+          if (!m.id) return false;
+          if (mensajesIds.current.has(m.id)) return false;
+          mensajesIds.current.add(m.id);
+          return true;
+        });
+        
+        setMensajes(mensajesUnicos);
+      }
+    } catch (e) {
+      console.error("❌ Error historial:", e);
+      setMensajes([]);
+    }
+  };
+  
+  cargarHistorial();
+}, [usuarioActual, destinatario]);
+```
+
+## WebSocket Connection
+
+### STOMP Client Setup
+
+```javascript
+import { Client } from "@stomp/stompjs";
+
+useEffect(() => {
+  if (!usuarioActual || !destinatario || !canalConversacion || isConnecting.current) return;
+  
+  const cliente = new Client({
+    brokerURL: "ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws",
+    debug: str => console.log("📡", str),
+    reconnectDelay: 5000,
+    heartbeatIncoming: 4000,
+    heartbeatOutgoing: 4000,
+  });
+  
+  stompRef.current = cliente;
+  
+  cliente.onConnect = () => {
+    setConectado(true);
+    isConnecting.current = false;
+    
+    // Subscribe to conversation channel
+    cliente.subscribe(canalConversacion, (msg) => {
+      try {
+        const data = JSON.parse(msg.body);
+        
+        if (data.id && data.contenido && !mensajesIds.current.has(data.id)) {
+          mensajesIds.current.add(data.id);
+          setMensajes(prev => [...prev, data]);
+        }
+      } catch (e) {
+        console.error("❌ Error procesando mensaje:", e);
+      }
+    });
+    
+    // Subscribe to personal notifications
+    cliente.subscribe(`/tema/notificacion/${usuarioActual}`, (msg) => {
+      try {
+        const notificacion = JSON.parse(msg.body);
+        console.log("🔔 Notificación personal recibida:", notificacion.tipo);
+      } catch (e) {
+        console.error("❌ Error notificación:", e);
+      }
+    });
+  };
+  
+  cliente.onDisconnect = () => {
+    setConectado(false);
+    isConnecting.current = false;
+  };
+  
+  cliente.onStompError = (frame) => {
+    console.error("❌ STOMP error:", frame);
+    setConectado(false);
+  };
+  
+  cliente.activate();
+  
+  return () => {
+    if (cliente) {
+      cliente.deactivate();
+    }
+    setConectado(false);
+  };
+}, [usuarioActual, destinatario, canalConversacion]);
+```
+
+## Message Sending
+
+### Send Message via WebSocket
+
+```javascript
+const enviarMensaje = useCallback(async () => {
+  const contenido = mensaje.trim();
+  if (!stompRef.current?.connected || !contenido) return;
+  
+  const validacion = validarYNormalizarIds(nombrePropio, destinatarioProp, 'ENVIO_MENSAJE');
+  if (!validacion.valido) {
+    console.error(`❌ Validación falló: ${validacion.error}`);
+    alert(`Error de validación: ${validacion.error}`);
+    return;
+  }
+  
+  const { usuarioActualId, destinatarioId } = validacion;
+  
+  const mensajeData = {
+    nombre: String(usuarioActualId),
+    contenido,
+    color: "#1976d2",
+    aspiranteId: usuarioActualId,
+    contratistaId: destinatarioId,
+    remitenteId: usuarioActualId,
+    fechaEnvio: new Date().toISOString(),
+    tipo: "MENSAJE_CHAT"
+  };
+  
+  try {
+    // 1. Send message via WebSocket
+    stompRef.current.publish({
+      destination: "/app/envio",
+      body: JSON.stringify(mensajeData),
+      headers: {
+        'content-type': 'application/json',
+        'priority': 'high'
+      }
+    });
+    
+    // 2. Send notification
+    const notificacionEnviada = await enviarNotificacionMensaje(
+      Number(usuarioActualId),
+      Number(destinatarioId),
+      contenido
+    );
+    
+    if (notificacionEnviada) {
+      setMensaje("");
+    }
+  } catch (error) {
+    console.error("❌ Error enviando mensaje:", error);
+    alert("Error al enviar el mensaje. Por favor intenta nuevamente.");
+  }
+}, [mensaje, nombrePropio, destinatarioProp, validarYNormalizarIds]);
+```
+
+### Send Notification
+
+```javascript
+const enviarNotificacionMensaje = useCallback(async (remitenteId, destinatarioId, contenido) => {
+  try {
+    if (typeof remitenteId !== 'number' || typeof destinatarioId !== 'number') {
+      throw new Error(`IDs deben ser números: remitente=${typeof remitenteId}, destinatario=${typeof destinatarioId}`);
+    }
+    
+    const payload = {
+      remitenteId: remitenteId,
+      destinatarioId: destinatarioId,
+      contenido: contenido,
+      tipo: "MENSAJE_DIRECTO"
+    };
+    
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 10000
+      }
+    );
+    
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Notificación enviada exitosamente');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Error notificación:', error);
+    return false;
+  }
+}, [datosDestinatario?.rol]);
+```
+
+## Auto-Scroll
+
+```javascript
+useEffect(() => {
+  if (mensajesEndRef.current && mensajes.length > 0) {
+    const timeoutId = setTimeout(() => {
+      mensajesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }
+}, [mensajes.length]);
+```
+
+## Message Rendering
+
+```jsx
+const mensajesRenderizados = useMemo(() => {
+  return mensajes.map((msg, index) => {
+    const esPropio = normalizarId(msg.remitenteId || msg.nombre) === usuarioActual;
+    const nombreRemitente = esPropio ? nombreMostrarUsuario : nombreMostrarDestinatario;
+    
+    return (
+      <div
+        key={`msg-${msg.id || index}`}
+        style={{
+          display: "flex",
+          justifyContent: esPropio ? "flex-end" : "flex-start",
+          marginBottom: "10px"
+        }}
+      >
+        <div style={{
+          maxWidth: "75%",
+          padding: "12px 16px",
+          borderRadius: esPropio ? "18px 18px 5px 18px" : "18px 18px 18px 5px",
+          backgroundColor: esPropio ? "#1976d2" : "white",
+          color: esPropio ? "white" : "black",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+        }}>
+          <div style={{ fontWeight: "bold", fontSize: "12px", marginBottom: "5px" }}>
+            {esPropio ? "Tú" : nombreRemitente}
+          </div>
+          <div style={{ wordBreak: "break-word" }}>
+            {msg.contenido || "Sin contenido"}
+          </div>
+          <div style={{ fontSize: "10px", opacity: 0.7, textAlign: "right", marginTop: "5px" }}>
+            {formatearFecha(msg.fechaEnvio)}
+          </div>
+        </div>
+      </div>
+    );
+  });
+}, [mensajes, usuarioActual, nombreMostrarUsuario, nombreMostrarDestinatario]);
+```
+
+## Date Formatting
+
+```javascript
+const formatearFecha = useCallback((fecha) => {
+  if (!fecha) return "";
+  try {
+    return new Date(fecha).toLocaleString("es-EC", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch (e) {
+    return "Fecha inválida";
+  }
+}, []);
+```
+
+## Chat UI
+
+```jsx
+<div style={{
+  position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+  backgroundColor: "rgba(0,0,0,0.5)", display: "flex",
+  justifyContent: "center", alignItems: "center", zIndex: 9999
+}}>
+  <div style={{
+    width: "450px", height: "600px", backgroundColor: "white",
+    borderRadius: "15px", display: "flex", flexDirection: "column",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.3)", overflow: "hidden"
+  }}>
+    {/* Header */}
+    <div style={{ padding: "15px 20px", backgroundColor: "#1976d2", color: "white" }}>
+      <h3>💬 Chat con {nombreMostrarDestinatario}</h3>
+      <small>
+        <span style={{
+          display: "inline-block", width: "8px", height: "8px",
+          borderRadius: "50%",
+          backgroundColor: conectado ? "#4caf50" : "#f44336"
+        }}></span>
+        {conectado ? "En línea" : "Conectando..."} • {mensajes.length} mensajes
+      </small>
+    </div>
+    
+    {/* Messages */}
+    <div style={{
+      flex: 1, padding: "15px", overflowY: "auto",
+      backgroundColor: "#f5f5f5", display: "flex",
+      flexDirection: "column", gap: "10px"
+    }}>
+      {mensajes.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#666", fontStyle: "italic" }}>
+          {conectado ? `💭 Inicia la conversación con ${nombreMostrarDestinatario}` : "🔄 Conectando..."}
+        </div>
+      ) : (
+        mensajesRenderizados
+      )}
+      <div ref={mensajesEndRef} />
+    </div>
+    
+    {/* Input */}
+    <div style={{
+      padding: "15px", backgroundColor: "white",
+      borderTop: "1px solid #e0e0e0", display: "flex", gap: "10px"
+    }}>
+      <input
+        type="text"
+        value={mensaje}
+        onChange={(e) => setMensaje(e.target.value)}
+        placeholder={conectado ? `Escribe a ${nombreMostrarDestinatario}...` : "Conectando..."}
+        disabled={!conectado}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            enviarMensaje();
+          }
+        }}
+        maxLength={500}
+        style={{
+          flex: 1, padding: "12px 16px",
+          border: `2px solid ${conectado ? "#1976d2" : "#ccc"}`,
+          borderRadius: "20px", outline: "none"
+        }}
+      />
+      <button
+        onClick={enviarMensaje}
+        disabled={!mensaje.trim() || !conectado}
+        style={{
+          padding: "12px 20px",
+          backgroundColor: mensaje.trim() && conectado ? "#1976d2" : "#ccc",
+          color: "white", border: "none", borderRadius: "20px",
+          cursor: mensaje.trim() && conectado ? "pointer" : "not-allowed"
+        }}
+      >
+        {conectado ? "📤 Enviar" : "🔄 ●●●"}
+      </button>
+    </div>
+  </div>
+</div>
+```
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/chat/historial` | GET | Load message history |
+| `/api/notificaciones/crear-notificacion-mensaje` | POST | Send message notification |
+| WebSocket: `/ws` | WS | WebSocket connection |
+| `/app/envio` | PUBLISH | Send message |
+| `/tema/conversacion/{menor}-{mayor}` | SUBSCRIBE | Conversation channel |
+| `/tema/notificacion/{userId}` | SUBSCRIBE | Personal notifications |
+
+## Usage Examples
+
+### From ModuloContratante
+
+```jsx
+import App from '../../App';
+
+<App
+  nombrePropio={JSON.parse(localStorage.getItem('userData'))?.usuarioId}
+  destinatarioProp={usuarioChat.idUsuario}
+  onCerrarChat={handleCerrarChat}
+  datosDestinatario={usuarioChat}
+  nombreDestinatario={`${usuarioChat.nombres} ${usuarioChat.apellidos}`}
+  nombreUsuarioActual={`${datosUsuarioActual.nombres} ${datosUsuarioActual.apellidos}`}
+/>
+```

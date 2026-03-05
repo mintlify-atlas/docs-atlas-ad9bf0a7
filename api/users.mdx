@@ -1,0 +1,469 @@
+---
+title: 'Users API'
+description: 'User management, profiles, and registration endpoints'
+icon: 'users'
+---
+
+## Overview
+
+The Users API manages user accounts, profiles, and registration for all user types (aspirantes, contratantes, and patients).
+
+## Base URL
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios
+```
+
+## Get User by ID
+
+### GET /api/usuarios/{id}
+
+Retrieve a specific user by their ID.
+
+```javascript
+import axios from 'axios';
+
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/${userId}`
+);
+
+const user = response.data;
+```
+
+### Response Example
+
+```json
+{
+  "id_usuario": 42,
+  "nombres": "María",
+  "apellidos": "García Pérez",
+  "correo": "maria.garcia@example.com",
+  "cedula": "1234567890",
+  "telefono": "0987654321",
+  "foto_perfil": "https://example.com/photos/maria.jpg",
+  "rol": "ASPIRANTE",
+  "fecha_creacion": "2024-01-15T10:30:00Z"
+}
+```
+
+## Get User by Email
+
+### GET /api/usuarios/por-correo
+
+Find a user by their email address.
+
+<CodeGroup>
+```javascript Fetch API
+const resUsuario = await fetch(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/por-correo?correo=${email}`
+);
+const usuario = await resUsuario.json();
+```
+
+```bash cURL
+curl 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/por-correo?correo=user@example.com'
+```
+</CodeGroup>
+
+<ParamField query="correo" type="string" required>
+  Email address to search for
+</ParamField>
+
+**Used in:** Password reset functionality at **source/src/components/Login/Login.jsx**
+
+## Get User ID by Aspirante
+
+### GET /api/usuarios/buscar_aspirante/{idAspirante}
+
+Retrieve the user ID associated with an aspirante (caregiver) ID.
+
+```javascript
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/buscar_aspirante/${idAspirante}`
+);
+
+const userId = response.data; // Returns numeric ID directly
+```
+
+**Location:** Used in **source/src/components/ModuloAspirante/PostulacionesAspirante/PostulacionesAspirante.jsx:67**
+
+<ResponseField name="response.data" type="number">
+  The user ID associated with the aspirante, or null if not found
+</ResponseField>
+
+## Get User ID by Contratante
+
+### GET /api/usuarios/buscar_contratante/{idContratante}
+
+Retrieve the user ID associated with a contratante (contractor) ID.
+
+```javascript
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/buscar_contratante/${userId}`
+);
+
+const contratanteId = response.data;
+```
+
+**Location:** Used in **source/src/components/ModuloContratante/HeaderContratante/headerContratante.jsx**
+
+## Registration Endpoints
+
+### Register Aspirante (Caregiver)
+
+**POST /api/registro/aspirante**
+
+**Service:** `source/src/servicios/registrarService.js:12`
+
+<CodeGroup>
+```javascript Service Implementation
+import axios from 'axios';
+
+export const registrarAspirante = async (payload) => {
+  try {
+    const dataToSend = {
+      ...payload,
+      aspiracionSalarial: payload.aspiracionSalarial !== undefined ?
+        Number(payload.aspiracionSalarial) : null
+    };
+    
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/registro/aspirante',
+      payload
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al registrar aspirante:', error);
+    throw error;
+  }
+};
+```
+
+```json Request Body
+{
+  "nombres": "María",
+  "apellidos": "García",
+  "correo": "maria@example.com",
+  "contrasena": "securePassword123",
+  "cedula": "1234567890",
+  "telefono": "0987654321",
+  "fecha_nacimiento": "1990-05-15",
+  "genero": "Femenino",
+  "aspiracionSalarial": 500.00,
+  "experiencia": "3 años en cuidado geriátrico",
+  "disponibilidad": "Tiempo completo"
+}
+```
+</CodeGroup>
+
+### Register Contratante (Contractor)
+
+**POST /api/registro/contratante**
+
+**Service:** `source/src/servicios/registrarService.js:26`
+
+```javascript
+export const registrarContratante = async (payload) => {
+  try {
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/registro/contratante',
+      payload
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al registrar contratante:', error);
+    throw error;
+  }
+};
+```
+
+**Request Body:**
+
+```json
+{
+  "nombres": "Juan",
+  "apellidos": "Pérez",
+  "correo": "juan@example.com",
+  "contrasena": "securePassword123",
+  "cedula": "0987654321",
+  "telefono": "0991234567",
+  "direccion": "Av. Principal 123",
+  "empresa": "Cuidados Familia S.A."
+}
+```
+
+### Register Paciente (Patient)
+
+**POST /api/registro/paciente**
+
+**Service:** `source/src/servicios/registrarService.js:3`
+
+```javascript
+export const registrarPaciente = async (payload) => {
+  try {
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/registro/paciente',
+      payload
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al registrar paciente:', error);
+    throw error;
+  }
+};
+```
+
+## Get Aspirante Details
+
+### GET /api/registro/aspirante/detalle/{idAspirante}
+
+Retrieve detailed information about a caregiver.
+
+**Service:** `source/src/servicios/registrarService.js:35`
+
+```javascript
+export const obtenerDetalleAspirante = async (idAspirante) => {
+  try {
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/registro/aspirante/detalle/${idAspirante}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener detalle del aspirante:', error);
+    throw error;
+  }
+};
+```
+
+### Response Format
+
+```json
+{
+  "success": true,
+  "aspirante": {
+    "idAspirante": 15,
+    "usuario": {
+      "id_usuario": 42,
+      "nombres": "María",
+      "apellidos": "García",
+      "correo": "maria@example.com",
+      "telefono": "0987654321",
+      "foto_perfil": "https://example.com/maria.jpg"
+    },
+    "aspiracionSalarial": 500.00,
+    "experiencia": "3 años en cuidado geriátrico",
+    "disponibilidad": "Tiempo completo",
+    "fecha_registro": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## User Roles
+
+The system defines three primary user roles:
+
+<Tabs>
+  <Tab title="ASPIRANTE">
+    **Caregiver/Applicant**
+    
+    Database fields:
+    - `idAspirante` - Unique aspirante ID
+    - `aspiracionSalarial` - Expected salary
+    - `experiencia` - Work experience description
+    - `disponibilidad` - Availability status
+    - `usuario` - Reference to user record
+    
+    Endpoints:
+    - POST `/api/registro/aspirante`
+    - GET `/api/registro/aspirante/detalle/{id}`
+    - GET `/api/usuarios/buscar_aspirante/{id}`
+  </Tab>
+  
+  <Tab title="CONTRATANTE">
+    **Contractor/Employer**
+    
+    Database fields:
+    - `idContratante` - Unique contractor ID
+    - `direccion` - Business address
+    - `empresa` - Company name
+    - `usuario` - Reference to user record
+    
+    Endpoints:
+    - POST `/api/registro/contratante`
+    - GET `/api/usuarios/buscar_contratante/{id}`
+  </Tab>
+  
+  <Tab title="PACIENTE">
+    **Patient**
+    
+    Database fields:
+    - `id_paciente` - Unique patient ID
+    - `fecha_nacimiento` - Birth date
+    - `genero` - Gender
+    - `usuario` - Reference to user record
+    
+    Endpoints:
+    - POST `/api/registro/paciente`
+    - GET `/api/pacientes/{id}`
+  </Tab>
+</Tabs>
+
+## Common User Fields
+
+<ResponseField name="id_usuario" type="number">
+  Unique user identifier
+</ResponseField>
+
+<ResponseField name="nombres" type="string">
+  First name(s)
+</ResponseField>
+
+<ResponseField name="apellidos" type="string">
+  Last name(s)
+</ResponseField>
+
+<ResponseField name="correo" type="string">
+  Email address (unique)
+</ResponseField>
+
+<ResponseField name="cedula" type="string">
+  National ID number
+</ResponseField>
+
+<ResponseField name="telefono" type="string">
+  Phone number
+</ResponseField>
+
+<ResponseField name="foto_perfil" type="string">
+  Profile photo URL
+</ResponseField>
+
+<ResponseField name="rol" type="string">
+  User role: ASPIRANTE, CONTRATANTE, or ADMIN
+</ResponseField>
+
+<ResponseField name="fecha_creacion" type="string">
+  ISO timestamp of account creation
+</ResponseField>
+
+## Usage Examples
+
+### Check if User Exists by Email
+
+```javascript
+const checkUserExists = async (email) => {
+  try {
+    const response = await fetch(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/por-correo?correo=${email}`
+    );
+    
+    if (response.ok) {
+      const user = await response.json();
+      return user !== null;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking user:', error);
+    return false;
+  }
+};
+```
+
+### Get User from LocalStorage
+
+```javascript
+const getUserData = () => {
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  return {
+    userId: userData.usuarioId || userData.userId,
+    role: userData.rol,
+    aspiranteId: userData.aspiranteId,
+    contratanteId: userData.contratanteId
+  };
+};
+```
+
+### Register New Aspirante
+
+```javascript
+import { registrarAspirante } from './servicios/registrarService';
+
+const newAspirante = {
+  nombres: 'María',
+  apellidos: 'García',
+  correo: 'maria@example.com',
+  contrasena: 'securePass123',
+  cedula: '1234567890',
+  telefono: '0987654321',
+  fecha_nacimiento: '1990-05-15',
+  genero: 'Femenino',
+  aspiracionSalarial: 500,
+  experiencia: '3 años en cuidado geriátrico',
+  disponibilidad: 'Tiempo completo'
+};
+
+try {
+  const result = await registrarAspirante(newAspirante);
+  console.log('Registered successfully:', result);
+} catch (error) {
+  console.error('Registration failed:', error);
+}
+```
+
+## Error Handling
+
+```javascript
+try {
+  const response = await axios.get(`/api/usuarios/${userId}`);
+  return response.data;
+} catch (error) {
+  if (error.response) {
+    // Server responded with error status
+    if (error.response.status === 404) {
+      throw new Error('Usuario no encontrado');
+    } else if (error.response.status === 500) {
+      throw new Error('Error del servidor');
+    }
+  } else if (error.request) {
+    // Request made but no response
+    throw new Error('No se pudo conectar con el servidor');
+  } else {
+    // Other errors
+    throw new Error('Error inesperado: ' + error.message);
+  }
+}
+```
+
+## Endpoints Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/usuarios/{id}` | Get user by ID |
+| GET | `/api/usuarios/por-correo?correo={email}` | Find user by email |
+| GET | `/api/usuarios/buscar_aspirante/{id}` | Get user ID from aspirante ID |
+| GET | `/api/usuarios/buscar_contratante/{id}` | Get user ID from contratante ID |
+| POST | `/api/registro/aspirante` | Register new caregiver |
+| POST | `/api/registro/contratante` | Register new contractor |
+| POST | `/api/registro/paciente` | Register new patient |
+| GET | `/api/registro/aspirante/detalle/{id}` | Get aspirante details |
+
+## Related APIs
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Login and session management
+  </Card>
+  <Card title="CV API" icon="id-card" href="/api/cv">
+    Caregiver resume management
+  </Card>
+  <Card title="Patients API" icon="hospital" href="/api/patients">
+    Patient record management
+  </Card>
+  <Card title="Jobs API" icon="briefcase" href="/api/jobs">
+    Job postings and publications
+  </Card>
+</CardGroup>
+
+<Info>
+  **Note:** User IDs and role-specific IDs (aspiranteId, contratanteId) are distinct. Use the lookup endpoints to convert between them.
+</Info>

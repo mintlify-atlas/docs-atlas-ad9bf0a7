@@ -1,0 +1,476 @@
+---
+title: 'Applications API'
+description: 'Job application management (postulaciones) and caregiver applications'
+icon: 'file-contract'
+---
+
+## Overview
+
+The Applications API (postulaciones) manages job applications from caregivers (aspirantes) to job postings. The system tracks application status, application dates, and allows contractors to accept or reject applications.
+
+## Base URL
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar
+```
+
+## Submit Application
+
+### POST /api/realizar/postular
+
+Submit a job application from an aspirante to a specific job posting.
+
+**Location:** Used in **source/src/components/ModuloAspirante/CardTrabajo/cardTrabajo.jsx:50**
+
+<CodeGroup>
+```javascript Fetch API
+const response = await fetch(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/postular?idAspirante=${idAspirante}&idPublicacionEmpleo=${idPublicacionEmpleo}`,
+  { method: 'POST' }
+);
+
+if (response.ok) {
+  console.log('Postulación exitosa');
+} else if (response.status === 409) {
+  console.log('Ya te has postulado a esta oferta');
+} else {
+  const error = await response.text();
+  console.error('Error al postular:', error);
+}
+```
+
+```bash cURL
+curl -X POST 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/postular?idAspirante=15&idPublicacionEmpleo=42'
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="idAspirante" type="number" required>
+  ID of the caregiver applying for the job
+</ParamField>
+
+<ParamField query="idPublicacionEmpleo" type="number" required>
+  ID of the job posting to apply to
+</ParamField>
+
+### Response Status Codes
+
+| Status | Meaning |
+|--------|----------|
+| 200 | Application submitted successfully |
+| 409 | Already applied (duplicate application) |
+| 400 | Invalid parameters |
+| 500 | Server error |
+
+## Get Aspirante's Applications
+
+### GET /api/realizar/aspirante/{idAspirante}
+
+Retrieve all applications submitted by a specific caregiver.
+
+**Location:** Used in **source/src/components/ModuloAspirante/PostulacionesAspirante/PostulacionesAspirante.jsx:89**
+
+```javascript
+const postulacionesResponse = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/aspirante/${aspiranteId}`
+);
+
+const postulaciones = postulacionesResponse.data;
+```
+
+### Response Format
+
+Returns an array of application objects with nested job and contractor information:
+
+```json
+[
+  {
+    "id_realizar": 123,
+    "fecha": "2024-03-15T10:30:00Z",
+    "postulacion": {
+      "id_postulacion": 45,
+      "estado": true,
+      "postulacion_empleo": {
+        "id_postulacion_empleo": 42,
+        "titulo": "Cuidador de adulto mayor",
+        "descripcion": "Se requiere cuidador con experiencia",
+        "salario_estimado": 550.00,
+        "fecha_limite": "2024-04-01",
+        "jornada": "Tiempo completo",
+        "turno": "Mañana",
+        "requisitos": "Experiencia mínima 2 años",
+        "actividades_realizar": "Cuidado personal, acompañamiento",
+        "id_paciente": 5,
+        "parroquia": {
+          "nombre": "La Mariscal"
+        },
+        "contratante": {
+          "idContratante": 8,
+          "nombre": "Juan Pérez"
+        }
+      }
+    }
+  }
+]
+```
+
+### Application Status Field
+
+The `estado` field indicates application status:
+
+<ResponseField name="estado" type="boolean | null">
+  Application status:
+  - `null` - Pending review
+  - `true` - Accepted
+  - `false` - Rejected
+</ResponseField>
+
+## Application Data Structure
+
+<ResponseField name="id_realizar" type="number">
+  Unique application ID
+</ResponseField>
+
+<ResponseField name="fecha" type="string">
+  Application submission date (ISO timestamp)
+</ResponseField>
+
+<ResponseField name="postulacion" type="object">
+  Application details object
+  
+  <Expandable title="postulacion properties">
+    <ResponseField name="id_postulacion" type="number">
+      Postulation ID
+    </ResponseField>
+    
+    <ResponseField name="estado" type="boolean | null">
+      Application status (null=pending, true=accepted, false=rejected)
+    </ResponseField>
+    
+    <ResponseField name="postulacion_empleo" type="object">
+      Complete job posting information
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Processing Application Data
+
+The frontend extracts relevant information from the nested structure:
+
+```javascript
+postulaciones.map((postulacion) => {
+  const empleo = postulacion.postulacion.postulacion_empleo;
+  const estado = postulacion.postulacion.estado;
+  const idPaciente = empleo.id_paciente;
+  
+  return {
+    id: postulacion.id_realizar,
+    fechaPostulacion: postulacion.fecha,
+    titulo: empleo.titulo,
+    descripcion: empleo.descripcion,
+    salario: empleo.salario_estimado,
+    contratante: empleo.contratante?.nombre,
+    ubicacion: empleo.parroquia?.nombre,
+    estado: estado === null ? 'Pendiente' : estado ? 'Aceptada' : 'Rechazada',
+    idPaciente: idPaciente
+  };
+});
+```
+
+## Application States
+
+<Tabs>
+  <Tab title="Pending">
+    **estado = null**
+    
+    - Application submitted but not yet reviewed
+    - Default state when application is created
+    - Displayed with hourglass icon (⏳)
+    - Color: Yellow/Orange
+    
+    ```javascript
+    if (estado === null) {
+      return { status: 'Pendiente', icon: <FaHourglassHalf /> };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Accepted">
+    **estado = true**
+    
+    - Application approved by contractor
+    - Caregiver can view patient details
+    - Displayed with check icon (✓)
+    - Color: Green
+    
+    ```javascript
+    if (estado === true) {
+      return { status: 'Aceptada', icon: <FaCheckCircle /> };
+    }
+    ```
+    
+    **Available Actions:**
+    - View patient data
+    - Contact contractor
+    - Access patient ficha
+  </Tab>
+  
+  <Tab title="Rejected">
+    **estado = false**
+    
+    - Application declined by contractor
+    - No further action available
+    - Displayed with X icon (✗)
+    - Color: Red
+    
+    ```javascript
+    if (estado === false) {
+      return { status: 'Rechazada', icon: <FaTimesCircle /> };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Usage Examples
+
+### Submit Application
+
+```javascript
+const handleAplicar = async (idAspirante, idPublicacionEmpleo) => {
+  if (!idAspirante) {
+    toast.error('No se pudo obtener el ID del aspirante');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/postular?idAspirante=${idAspirante}&idPublicacionEmpleo=${idPublicacionEmpleo}`,
+      { method: 'POST' }
+    );
+
+    if (response.ok) {
+      toast.success('Postulación exitosa');
+      setPostulado(true);
+    } else if (response.status === 409) {
+      toast.warning('Ya te has postulado a esta oferta');
+      setPostulado(true);
+    } else {
+      const errorText = await response.text();
+      toast.error(`Error al postular: ${errorText}`);
+    }
+  } catch (error) {
+    console.error('Error inesperado al postular:', error);
+    toast.error('Error inesperado al postular');
+  }
+};
+```
+
+### Display User's Applications
+
+```javascript
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const MisPostulaciones = ({ aspiranteId }) => {
+  const [postulaciones, setPostulaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPostulaciones = async () => {
+      try {
+        const response = await axios.get(
+          `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/aspirante/${aspiranteId}`
+        );
+        setPostulaciones(response.data);
+      } catch (error) {
+        console.error('Error al cargar postulaciones:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPostulaciones();
+  }, [aspiranteId]);
+
+  const getEstadoLabel = (estado) => {
+    if (estado === null) return 'Pendiente';
+    return estado ? 'Aceptada' : 'Rechazada';
+  };
+
+  return (
+    <div>
+      {postulaciones.map((post) => {
+        const empleo = post.postulacion.postulacion_empleo;
+        const estado = post.postulacion.estado;
+        
+        return (
+          <div key={post.id_realizar}>
+            <h3>{empleo.titulo}</h3>
+            <p>Estado: {getEstadoLabel(estado)}</p>
+            <p>Fecha: {new Date(post.fecha).toLocaleDateString()}</p>
+            <p>Salario: ${empleo.salario_estimado}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+```
+
+### Filter Applications by Status
+
+```javascript
+const filterPostulaciones = (postulaciones, filterType) => {
+  return postulaciones.filter(post => {
+    const estado = post.postulacion.estado;
+    
+    switch (filterType) {
+      case 'pending':
+        return estado === null;
+      case 'accepted':
+        return estado === true;
+      case 'rejected':
+        return estado === false;
+      default:
+        return true;
+    }
+  });
+};
+
+// Usage
+const pendientes = filterPostulaciones(postulaciones, 'pending');
+const aceptadas = filterPostulaciones(postulaciones, 'accepted');
+const rechazadas = filterPostulaciones(postulaciones, 'rejected');
+```
+
+### Access Patient Data (Accepted Applications)
+
+```javascript
+const handleVerPaciente = (idPaciente, estado) => {
+  // Only allow if application is accepted
+  if (estado !== true) {
+    toast.warning('Debes tener una postulación aceptada para ver los datos del paciente');
+    return;
+  }
+  
+  navigate(`/moduloAspirante/ficha-paciente/${idPaciente}`);
+};
+```
+
+## Date Formatting
+
+Applications include timestamp formatting:
+
+```javascript
+const formatoFecha = (fecha) => {
+  if (!fecha) return 'Fecha no disponible';
+
+  try {
+    const options = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    };
+    return new Date(fecha).toLocaleDateString('es-ES', options);
+  } catch {
+    return 'Fecha inválida';
+  }
+};
+
+// Output: "15 de marzo de 2024"
+```
+
+## Empty State Handling
+
+When no applications exist:
+
+```javascript
+if (postulaciones.length === 0) {
+  return (
+    <div className="empty-state">
+      <h2>¡Tu aventura laboral está por comenzar!</h2>
+      <p>Aún no has realizado ninguna postulación</p>
+      <Link to="/trabajos">
+        Explorar trabajos disponibles
+      </Link>
+    </div>
+  );
+}
+```
+
+## Integration with Jobs API
+
+Applications connect to jobs through `id_postulacion_empleo`:
+
+```javascript
+// Get job details from application
+const empleo = postulacion.postulacion.postulacion_empleo;
+
+// Access nested job data
+const jobInfo = {
+  id: empleo.id_postulacion_empleo,
+  titulo: empleo.titulo,
+  salario: empleo.salario_estimado,
+  fechaLimite: empleo.fecha_limite,
+  // ... other job fields
+};
+```
+
+## Chatbot Integration
+
+Applications data can be used by the chatbot at **source/src/components/ModuloAspirante/PostulacionesAspirante/ChatbotInteligente.jsx**:
+
+```javascript
+const response = await axios.get(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/aspirante/${aspiranteId}`
+);
+
+const postulaciones = response.data;
+
+// Use for chatbot context
+const acceptedJobs = postulaciones.filter(
+  p => p.postulacion.estado === true
+).length;
+
+const pendingJobs = postulaciones.filter(
+  p => p.postulacion.estado === null
+).length;
+```
+
+## Endpoints Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/realizar/postular?idAspirante={id}&idPublicacionEmpleo={id}` | Submit job application |
+| GET | `/api/realizar/aspirante/{idAspirante}` | Get caregiver's applications |
+
+## Related APIs
+
+<CardGroup cols={2}>
+  <Card title="Jobs API" icon="briefcase" href="/api/jobs">
+    Job postings that can be applied to
+  </Card>
+  <Card title="Users API" icon="users" href="/api/users">
+    Aspirante and contractor profiles
+  </Card>
+  <Card title="Notifications" icon="bell" href="/api/notifications">
+    Application status notifications
+  </Card>
+  <Card title="Patients API" icon="hospital-user" href="/api/patients">
+    Patient data accessible after acceptance
+  </Card>
+</CardGroup>
+
+<Info>
+  **Application Workflow:**
+  1. Aspirante browses available jobs (not yet applied)
+  2. Submits application via POST `/api/realizar/postular`
+  3. Application starts with `estado = null` (pending)
+  4. Contractor reviews and updates estado to true/false
+  5. If accepted, aspirante can access patient details
+</Info>
+
+<Warning>
+  Duplicate applications return a 409 status code. Handle this gracefully in the UI to inform users they've already applied.
+</Warning>

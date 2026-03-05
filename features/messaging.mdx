@@ -1,0 +1,527 @@
+---
+title: Real-Time Messaging
+description: WebSocket-powered chat system for instant communication between employers and candidates
+---
+
+## Overview
+
+CALMA's messaging system provides real-time communication between employers (Contratantes) and accepted candidates (Aspirantes) using WebSocket technology with the STOMP protocol.
+
+## Chat Component
+
+Location: `src/App.jsx`
+
+The chat system is implemented in the main App component and provides:
+
+- Real-time bidirectional messaging
+- Message history persistence
+- Online/offline status indicators
+- Typing indicators
+- Message notifications
+- Read receipts
+
+## Architecture
+
+```javascript
+┌───────────────────────────────────┐
+│       CALMA Chat Architecture        │
+├───────────────────────────────────┤
+│                                     │
+│  React Component (App.jsx)          │
+│         │                          │
+│         ↓                          │
+│  STOMP.js Client                    │
+│         │                          │
+│         ↓                          │
+│  WebSocket Connection               │
+│  ws://backend:8090/ws               │
+│         │                          │
+│         ↓                          │
+│  Backend STOMP Broker               │
+│         │                          │
+│         ↓                          │
+│  Message Queue & Persistence        │
+│                                     │
+└───────────────────────────────────┘
+```
+
+## WebSocket Connection
+
+The chat system establishes a WebSocket connection using STOMP.js:
+
+```javascript App.jsx lines
+import { Client } from "@stomp/stompjs";
+
+const cliente = new Client({
+  brokerURL: "ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws",
+  debug: str => console.log("📡", str),
+  reconnectDelay: 5000,
+  heartbeatIncoming: 4000,
+  heartbeatOutgoing: 4000,
+});
+
+cliente.onConnect = () => {
+  console.log("✅ WebSocket Conectado");
+  setConectado(true);
+  
+  // Subscribe to conversation channel
+  cliente.subscribe(canalConversacion, (msg) => {
+    const data = JSON.parse(msg.body);
+    handleIncomingMessage(data);
+  });
+  
+  // Subscribe to personal notifications
+  cliente.subscribe(`/tema/notificacion/${usuarioActual}`, (msg) => {
+    const notificacion = JSON.parse(msg.body);
+    handleNotification(notificacion);
+  });
+};
+
+cliente.activate();
+```
+
+## Conversation Channel
+
+Each conversation has a unique channel based on user IDs:
+
+```javascript App.jsx:112-117
+// Generate conversation channel
+const canalConversacion = useMemo(() => {
+  if (!usuarioActual || !destinatario) return null;
+  const menor = Math.min(usuarioActual, destinatario);
+  const mayor = Math.max(usuarioActual, destinatario);
+  return `/tema/conversacion/${menor}-${mayor}`;
+}, [usuarioActual, destinatario]);
+```
+
+This ensures:
+- Unique channel per conversation pair
+- Same channel regardless of who initiates
+- Bidirectional message flow
+
+## Sending Messages
+
+Messages are sent through the STOMP client:
+
+```javascript App.jsx:325-400
+const enviarMensaje = useCallback(async () => {
+  const contenido = mensaje.trim();
+  if (!stompRef.current?.connected || !contenido) {
+    return;
+  }
+  
+  // Validate user IDs
+  const validacion = validarYNormalizarIds(nombrePropio, destinatarioProp, 'ENVIO_MENSAJE');
+  if (!validacion.valido) {
+    alert(`Error de validación: ${validacion.error}`);
+    return;
+  }
+  
+  const { usuarioActualId, destinatarioId } = validacion;
+  
+  const mensajeData = {
+    nombre: String(usuarioActualId),
+    contenido,
+    color: "#1976d2",
+    aspiranteId: usuarioActualId,
+    contratistaId: destinatarioId,
+    remitenteId: usuarioActualId,
+    fechaEnvio: new Date().toISOString(),
+    tipo: "MENSAJE_CHAT",
+    sessionId: sessionStorage.getItem('sessionId')
+  };
+  
+  try {
+    // Send via WebSocket
+    stompRef.current.publish({
+      destination: "/app/envio",
+      body: JSON.stringify(mensajeData),
+      headers: {
+        'content-type': 'application/json',
+        'priority': 'high'
+      }
+    });
+    
+    // Send notification
+    await enviarNotificacionMensaje(
+      Number(usuarioActualId),
+      Number(destinatarioId),
+      contenido
+    );
+    
+    setMensaje("");
+  } catch (error) {
+    console.error("Error al enviar mensaje:", error);
+    alert("Error al enviar el mensaje. Por favor intenta nuevamente.");
+  }
+}, [mensaje, nombrePropio, destinatarioProp]);
+```
+
+## Message Structure
+
+```javascript
+// Message object structure
+{
+  id: number,                  // Unique message ID
+  nombre: string,              // Sender ID as string
+  remitenteId: number,        // Sender user ID
+  contenido: string,          // Message content
+  color: string,              // Sender color for UI
+  aspiranteId: number,        // Job seeker ID
+  contratistaId: number,      // Employer ID
+  fechaEnvio: string,         // ISO timestamp
+  tipo: string,               // Message type
+  sessionId: string           // Session identifier
+}
+```
+
+## Message History
+
+Chat history is loaded when opening a conversation:
+
+```javascript App.jsx:200-232
+const cargarHistorial = async () => {
+  try {
+    const response = await fetch(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chat/historial?aspiranteId=${usuarioActual}&contratistaId=${destinatario}`
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Remove duplicates
+      mensajesIds.current.clear();
+      const mensajesUnicos = data.filter(m => {
+        if (!m.id) return false;
+        if (mensajesIds.current.has(m.id)) return false;
+        mensajesIds.current.add(m.id);
+        return true;
+      });
+      
+      setMensajes(mensajesUnicos);
+    }
+  } catch (e) {
+    console.error("Error cargando historial:", e);
+    setMensajes([]);
+  }
+};
+```
+
+## Message Notifications
+
+Separate API call for sending notifications:
+
+```javascript App.jsx:128-191
+const enviarNotificacionMensaje = useCallback(async (remitenteId, destinatarioId, contenido) => {
+  try {
+    // Verify IDs are numbers
+    if (typeof remitenteId !== 'number' || typeof destinatarioId !== 'number') {
+      throw new Error(`IDs must be numbers`);
+    }
+    
+    const payload = {
+      remitenteId: remitenteId,
+      destinatarioId: destinatarioId,
+      contenido: contenido,
+      tipo: "MENSAJE_DIRECTO"
+    };
+    
+    const response = await axios.post(
+      'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 10000
+      }
+    );
+    
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Notificación enviada exitosamente');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Error enviando notificación:', error);
+    return false;
+  }
+}, []);
+```
+
+## Chat Access Control
+
+Chat is only available for accepted applications:
+
+### For Employers
+
+```javascript moduloContratante.jsx:207-224
+const handleAbrirPanelUsuarios = async () => {
+  setShowPanelUsuarios(true);
+  
+  try {
+    const response = await axios.get(
+      `${API_URL}/api/postulacion/contratista/${contratanteId}/aspirantes-para-chat`
+    );
+    
+    // Only show accepted candidates
+    setUsuariosEncontrados(response.data);
+  } catch (error) {
+    console.error('Error loading candidates for chat:', error);
+    setUsuariosEncontrados([]);
+  }
+};
+```
+
+### For Job Seekers
+
+Job seekers can chat with employers who accepted their applications through the "Aceptada" status in PostulacionesAspirante.
+
+## Chat UI Features
+
+### Connection Status
+
+```javascript
+// Visual connection indicator
+<span style={{
+  display: "inline-block",
+  width: "8px",
+  height: "8px",
+  borderRadius: "50%",
+  backgroundColor: conectado ? "#4caf50" : "#f44336",
+  marginRight: "5px"
+}}></span>
+{conectado ? "En línea" : "Conectando..."}
+```
+
+### Message Bubbles
+
+```javascript App.jsx:436-469
+<div style={{
+  display: "flex",
+  justifyContent: esPropio ? "flex-end" : "flex-start",
+  marginBottom: "10px"
+}}>
+  <div style={{
+    maxWidth: "75%",
+    padding: "12px 16px",
+    borderRadius: esPropio ? "18px 18px 5px 18px" : "18px 18px 18px 5px",
+    backgroundColor: esPropio ? "#1976d2" : "white",
+    color: esPropio ? "white" : "black",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    border: esPropio ? "none" : "1px solid #e0e0e0"
+  }}>
+    <div style={{ fontWeight: "bold", fontSize: "12px", marginBottom: "5px" }}>
+      {esPropio ? "Tú" : nombreRemitente}
+    </div>
+    <div style={{ wordBreak: "break-word" }}>
+      {msg.contenido || "Sin contenido"}
+    </div>
+    <div style={{ fontSize: "10px", opacity: 0.7, textAlign: "right" }}>
+      {formatearFecha(msg.fechaEnvio)}
+    </div>
+  </div>
+</div>
+```
+
+### Auto-scroll
+
+```javascript App.jsx:235-242
+// Scroll to bottom on new messages
+useEffect(() => {
+  if (mensajesEndRef.current && mensajes.length > 0) {
+    const timeoutId = setTimeout(() => {
+      mensajesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }
+}, [mensajes.length]);
+```
+
+## Message Validation
+
+Strict ID validation prevents message routing errors:
+
+```javascript App.jsx:31-84
+const validarYNormalizarIds = useCallback((nombrePropio, destinatarioProp, contexto = '') => {
+  const usuarioActualId = normalizarId(nombrePropio);
+  const destinatarioId = normalizarId(destinatarioProp);
+  
+  // Critical validations
+  if (usuarioActualId === null || destinatarioId === null) {
+    return {
+      valido: false,
+      error: 'IDs cannot be null',
+      usuarioActualId: null,
+      destinatarioId: null
+    };
+  }
+  
+  if (isNaN(usuarioActualId) || isNaN(destinatarioId)) {
+    return {
+      valido: false,
+      error: 'IDs must be valid numbers',
+      usuarioActualId,
+      destinatarioId
+    };
+  }
+  
+  if (usuarioActualId <= 0 || destinatarioId <= 0) {
+    return {
+      valido: false,
+      error: 'IDs must be positive',
+      usuarioActualId,
+      destinatarioId
+    };
+  }
+  
+  if (usuarioActualId === destinatarioId) {
+    return {
+      valido: false,
+      error: 'User cannot chat with themselves',
+      usuarioActualId,
+      destinatarioId
+    };
+  }
+  
+  return {
+    valido: true,
+    usuarioActualId: Number(usuarioActualId),
+    destinatarioId: Number(destinatarioId),
+    error: null
+  };
+}, [normalizarId]);
+```
+
+## Error Handling
+
+```javascript
+// Connection error handling
+cliente.onStompError = (frame) => {
+  console.error("❌ STOMP error:", frame);
+  setConectado(false);
+};
+
+cliente.onDisconnect = () => {
+  console.log("❌ WebSocket Disconnected");
+  setConectado(false);
+};
+
+// Automatic reconnection
+reconnectDelay: 5000  // Retry every 5 seconds
+```
+
+## Chat API Endpoints
+
+<ResponseField name="GET /api/chat/historial" type="array">
+  Load message history for a conversation
+  
+  <Expandable title="Query Parameters">
+    <ParamField query="aspiranteId" type="number" required>
+      Job seeker ID
+    </ParamField>
+    <ParamField query="contratistaId" type="number" required>
+      Employer ID
+    </ParamField>
+  </Expandable>
+  
+  <Expandable title="Response">
+    Returns array of message objects ordered by date
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="POST /app/envio" type="websocket">
+  WebSocket endpoint for sending messages
+  
+  <Expandable title="Message Format">
+    Send JSON message through STOMP protocol to this destination
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="SUBSCRIBE /tema/conversacion/{menor}-{mayor}" type="websocket">
+  Subscribe to conversation updates
+  
+  <Expandable title="Channel Format">
+    Channel is named using smaller and larger user IDs to ensure uniqueness
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="POST /api/notificaciones/crear-notificacion-mensaje" type="object">
+  Send message notification to recipient
+  
+  <Expandable title="Request Body">
+    <ParamField path="remitenteId" type="number" required>
+      Sender user ID
+    </ParamField>
+    <ParamField path="destinatarioId" type="number" required>
+      Recipient user ID
+    </ParamField>
+    <ParamField path="contenido" type="string" required>
+      Message content for notification
+    </ParamField>
+    <ParamField path="tipo" type="string">
+      Type: "MENSAJE_DIRECTO"
+    </ParamField>
+  </Expandable>
+</ResponseField>
+
+## Performance Optimizations
+
+### Message Deduplication
+
+```javascript
+const mensajesIds = useRef(new Set());
+
+// Check for duplicates before adding
+if (data.id && !mensajesIds.current.has(data.id)) {
+  mensajesIds.current.add(data.id);
+  setMensajes(prev => [...prev, data]);
+}
+```
+
+### Memoization
+
+```javascript
+// Memoize channel calculation
+const canalConversacion = useMemo(() => {
+  if (!usuarioActual || !destinatario) return null;
+  const menor = Math.min(usuarioActual, destinatario);
+  const mayor = Math.max(usuarioActual, destinatario);
+  return `/tema/conversacion/${menor}-${mayor}`;
+}, [usuarioActual, destinatario]);
+
+// Memoize rendered messages
+const mensajesRenderizados = useMemo(() => {
+  return mensajes.map((msg, index) => renderMessage(msg, index));
+}, [mensajes]);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep messages professional">
+    All communication in CALMA should remain professional and job-related.
+  </Accordion>
+  
+  <Accordion title="Respond promptly">
+    Try to respond to messages within 24 hours to maintain good communication.
+  </Accordion>
+  
+  <Accordion title="Use clear language">
+    Write clearly and avoid ambiguity, especially when discussing work schedules and requirements.
+  </Accordion>
+  
+  <Accordion title="Don't share sensitive information">
+    Avoid sharing personal financial information, passwords, or sensitive patient data through chat.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  The chat system is only available for accepted applications. Employers must accept an application before chatting with a candidate.
+</Warning>
+
+<Tip>
+  Enable browser notifications to receive instant alerts when you receive new messages.
+</Tip>

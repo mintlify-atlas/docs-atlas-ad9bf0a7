@@ -1,0 +1,365 @@
+---
+title: 'Job Posting Management'
+description: 'Create and manage job postings for elderly care positions'
+---
+
+# Job Posting Components
+
+Manage job postings with creation, editing, listing, and deletion functionality.
+
+## FormularioPublicacion Component
+
+### Location
+
+`src/components/ModuloContratante/FormularioPublicacion/formularioPublicacion.jsx`
+
+### Component Props
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `userId` | string | Contratante ID |
+| `publicacionEditar` | object | Job posting to edit (optional) |
+| `onCancel` | function | Cancel callback |
+| `onSuccess` | function | Success callback |
+
+### State Structure
+
+```javascript
+const [titulo, setTitulo] = useState('');
+const [descripcion, setDescripcion] = useState('');
+const [fechaLimite, setFechaLimite] = useState('');
+const [jornada, setJornada] = useState('');
+const [salarioEstimado, setSalarioEstimado] = useState('');
+const [requisitos, setRequisitos] = useState('');
+const [turno, setTurno] = useState('');
+const [estado, setEstado] = useState('');
+const [disponibilidadInmediata, setDisponibilidadInmediata] = useState(false);
+const [actividadesRealizar, setActividadesRealizar] = useState('');
+const [idProvincia, setIdProvincia] = useState('');
+const [idCanton, setIdCanton] = useState('');
+const [idParroquia, setIdParroquia] = useState('');
+const [idPaciente, setIdPaciente] = useState('');
+const [pacientes, setPacientes] = useState([]);
+const [errores, setErrores] = useState({});
+```
+
+### Form Fields
+
+#### Required Fields
+
+1. **Paciente** (select)
+   ```javascript
+   <select value={idPaciente} onChange={e => setIdPaciente(e.target.value)} required>
+     <option value="">-- Selecciona paciente --</option>
+     {pacientes.map(p => (
+       <option key={p.id_paciente} value={p.id_paciente}>
+         {p.nombres} {p.apellidos}
+       </option>
+     ))}
+   </select>
+   ```
+
+2. **Título** (text)
+   - Placeholder: "Cuidador para adulto mayor con experiencia"
+   - Validation: Letters, numbers, and common punctuation only
+
+3. **Fecha Límite** (date)
+   ```javascript
+   const obtenerFechaMinima = () => {
+     const ahora = new Date();
+     const offsetEcuador = -5;
+     const utc = ahora.getTime() + (ahora.getTimezoneOffset() * 60000);
+     const fechaEcuador = new Date(utc + (offsetEcuador * 3600000));
+     return fechaEcuador.toISOString().split('T')[0];
+   };
+
+   const obtenerFechaMaxima = () => {
+     const fechaEcuador = /* ... calculate ... */;
+     fechaEcuador.setDate(fechaEcuador.getDate() + 20);
+     return fechaEcuador.toISOString().split('T')[0];
+   };
+   
+   <input
+     type="date"
+     value={fechaLimite}
+     onChange={e => setFechaLimite(e.target.value)}
+     min={obtenerFechaMinima()}
+     max={obtenerFechaMaxima()}
+     required
+   />
+   ```
+
+4. **Jornada** (select)
+   - Options: Tiempo completo, Medio tiempo, Por horas
+
+5. **Turno** (select)
+   - Options: Mañana, Tarde, Noche
+
+6. **Estado** (select)
+   - Options: Activo, Inactivo
+
+7. **Salario Estimado** (number)
+   - Min: $230
+   - Validation: Numbers only
+
+8. **Descripción** (textarea)
+   - Placeholder: "Describa las tareas y responsabilidades"
+
+9. **Actividades a Realizar** (textarea)
+   - Placeholder: "Ejemplo: Acompañamiento, administración de medicamentos..."
+
+10. **Requisitos** (textarea)
+    - Placeholder: "Ejemplo: Experiencia mínima 1 año, referencias comprobables"
+
+11. **Location Cascade**
+    - Provincia → Cantón → Parroquia (cascading selects)
+
+#### Optional Fields
+
+12. **Disponibilidad Inmediata** (checkbox)
+
+### Location Cascade Logic
+
+```javascript
+useEffect(() => {
+  axios.get('http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/provincias')
+    .then(res => setProvincias(res.data))
+    .catch(() => setProvincias([]));
+}, []);
+
+useEffect(() => {
+  if (idProvincia) {
+    axios.get(`http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/cantones/provincia/${idProvincia}`)
+      .then(res => setCantones(res.data));
+  }
+  setIdCanton('');
+  setIdParroquia('');
+}, [idProvincia]);
+
+useEffect(() => {
+  if (idCanton) {
+    axios.get(`http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/parroquias/canton/${idCanton}`)
+      .then(res => setParroquias(res.data));
+  }
+  setIdParroquia('');
+}, [idCanton]);
+```
+
+### Validation
+
+```javascript
+const validarCampos = () => {
+  const erroresTemp = {};
+  const soloLetras = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
+  const letrasNumeros = /^[A-Za-z0-9ÁÉÍÓÚáéíóúÑñ.,:;()\-_\s]+$/;
+  const soloNumeros = /^\d+$/;
+
+  if (!idPaciente) erroresTemp.idPaciente = 'Debe seleccionar un paciente.';
+  
+  if (!titulo.trim()) {
+    erroresTemp.titulo = 'El título es obligatorio.';
+  } else if (!soloLetras.test(titulo.trim())) {
+    erroresTemp.titulo = 'El título solo debe contener letras.';
+  }
+  
+  if (!fechaLimite) {
+    erroresTemp.fechaLimite = 'Debe ingresar la fecha límite.';
+  } else {
+    const fechaSeleccionada = new Date(fechaLimite + 'T00:00:00');
+    // Validate date range (today to +20 days)
+  }
+  
+  if (!salarioEstimado) {
+    erroresTemp.salarioEstimado = 'Campo obligatorio.';
+  } else if (parseInt(salarioEstimado, 10) < 230) {
+    erroresTemp.salarioEstimado = 'El salario no puede ser menor a $230.';
+  }
+  
+  setErrores(erroresTemp);
+  return Object.keys(erroresTemp).length === 0;
+};
+```
+
+### Form Submission
+
+```javascript
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validarCampos()) {
+    toast.error('Por favor corrige los errores en el formulario.');
+    return;
+  }
+  
+  const fechaEnviar = fechaLimite ? new Date(fechaLimite + 'T00:00:00') : null;
+  
+  const data = {
+    titulo,
+    descripcion,
+    fecha_limite: fechaEnviar,
+    jornada,
+    salario_estimado: salarioEstimado,
+    requisitos,
+    turno,
+    estado,
+    disponibilidad_inmediata: disponibilidadInmediata,
+    actividades_realizar: actividadesRealizar,
+    parroquia: { id_parroquia: idParroquia },
+    id_paciente: Number(idPaciente),
+  };
+  
+  try {
+    if (publicacionEditar) {
+      await axios.put(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/publicacion_empleo/actualizar/${publicacionEditar.id_postulacion_empleo}`,
+        data
+      );
+      toast.success('Publicación actualizada correctamente');
+    } else {
+      await axios.post(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/publicacion_empleo/guardar?idParroquia=${idParroquia}&idContratante=${contratanteId}`,
+        data
+      );
+      toast.success('Publicación creada correctamente');
+      limpiarFormulario();
+    }
+    
+    setTimeout(() => {
+      navigate(`/moduloContratante/ListaPublicaciones?userId=${contratanteId}`);
+    }, 1500);
+  } catch (error) {
+    toast.error('Error al guardar la publicación');
+  }
+};
+```
+
+## ListaPublicaciones Component
+
+### Location
+
+`src/components/ModuloContratante/ListaPublicaciones/listaPublicaciones.jsx`
+
+### Component Props
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `refrescar` | any | Trigger for refresh |
+| `onEditar` | function | Edit callback |
+| `userId` | string | Contratante ID |
+
+### State Structure
+
+```javascript
+const [publicaciones, setPublicaciones] = useState([]);
+const [loading, setLoading] = useState(true);
+const [filtroFecha, setFiltroFecha] = useState('');
+const [filtroTitulo, setFiltroTitulo] = useState('');
+const [mostrarFormulario, setMostrarFormulario] = useState(false);
+const [publicacionEditar, setPublicacionEditar] = useState(null);
+```
+
+### Fetch Publicaciones
+
+```javascript
+useEffect(() => {
+  const fetchPublicaciones = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/generar/contratante/${userId}`
+      );
+      setPublicaciones(res.data);
+    } catch (err) {
+      console.error("Error al cargar publicaciones:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  fetchPublicaciones();
+}, [userId, refrescar, mostrarFormulario]);
+```
+
+### Filtering
+
+```javascript
+const publicacionesFiltradas = publicaciones.filter(pub => {
+  const fecha = pub.publicacionempleo?.fecha_publicacion;
+  const fechaNormalizada = fecha ? formatoLocal(fecha) : '';
+  const coincideFecha = filtroFecha ? fechaNormalizada === filtroFecha : true;
+  const coincideTitulo = pub.publicacionempleo?.titulo?.toLowerCase().includes(filtroTitulo.toLowerCase());
+  return coincideFecha && coincideTitulo;
+});
+```
+
+### Delete with Confirmation
+
+```javascript
+const mostrarConfirmacionEliminacion = (idPublicacion) => {
+  const toastId = toast.info(
+    <div>
+      <p>¿Seguro que deseas eliminar esta publicación?</p>
+      <button onClick={() => {
+        toast.dismiss(toastId);
+        axios.delete(`http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/publicacion_empleo/eliminar/${idPublicacion}`)
+          .then(res => {
+            toast.success(res.data);
+            setPublicaciones(prev =>
+              prev.filter(pub => pub.publicacionempleo.id_postulacion_empleo !== idPublicacion)
+            );
+          })
+      }}>Eliminar</button>
+      <button onClick={() => toast.dismiss(toastId)}>Cancelar</button>
+    </div>,
+    { autoClose: false, closeButton: false }
+  );
+};
+```
+
+### Publication Card Rendering
+
+```jsx
+{publicacionesFiltradas.map(pub => {
+  const empleo = pub.publicacionempleo;
+  
+  return (
+    <li key={pub.id_genera} className="item-publicacion">
+      <div className="info-publicacion">
+        <h4>{empleo.titulo}</h4>
+        <div className="fila-info-basica">
+          <span>📍 {empleo.parroquia?.nombre}</span>
+          <span>🕒 {empleo.jornada}</span>
+          <span>💰 ${empleo.salario_estimado?.toLocaleString()}</span>
+        </div>
+        <p>📅 Fecha publicación: {formatoLocal(pub.fechaPublicacion)}</p>
+        <p>⏳ Fecha límite: {formatoLocal(empleo.fecha_limite)}</p>
+        <p>📊 Estado: {empleo.estado}</p>
+        <p>⚡ Disponibilidad inmediata: {empleo.disponibilidad_inmediata ? 'Sí' : 'No'}</p>
+        <p>📝 Descripción: {empleo.descripcion}</p>
+        <p>📌 Requisitos: {empleo.requisitos}</p>
+        <p>🕔 Turno: {empleo.turno}</p>
+        <p>🛠️ Actividades: {empleo.actividades_realizar}</p>
+      </div>
+      <div className="acciones-publicacion">
+        <button onClick={() => handleEditar(pub.id_genera)}>Editar</button>
+        <button onClick={() => mostrarConfirmacionEliminacion(empleo.id_postulacion_empleo)}>Eliminar</button>
+      </div>
+    </li>
+  );
+})}
+```
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/publicacion_empleo/guardar` | POST | Create job posting |
+| `/api/publicacion_empleo/actualizar/{id}` | PUT | Update job posting |
+| `/api/publicacion_empleo/eliminar/{id}` | DELETE | Delete job posting |
+| `/api/generar/contratante/{id}` | GET | List all postings |
+| `/api/publicacion_empleo/pacientes/contratante/{id}` | GET | Get employer's patients |
+
+## Styling
+
+- `src/components/ModuloContratante/FormularioPublicacion/FormularioPublicacion.css`
+- `src/components/ModuloContratante/ListaPublicaciones/ListaPublicaciones.css`

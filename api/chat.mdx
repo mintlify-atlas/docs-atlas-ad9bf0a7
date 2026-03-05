@@ -1,0 +1,503 @@
+---
+title: 'Chat & Chatbot API'
+description: 'Real-time messaging, WebSocket communication, and AI chatbot integration'
+icon: 'comments'
+---
+
+## Overview
+
+The Chat API provides two main features: an AI-powered chatbot for general questions and real-time WebSocket messaging for video call signaling.
+
+## Chatbot API
+
+### Base URL
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chatbot
+```
+
+### POST /api/chatbot/preguntar
+
+Send a question to the AI chatbot and receive an intelligent response.
+
+**Location:** Used in **source/src/components/ChatBot/ChatBubble.jsx:48**
+
+<CodeGroup>
+```javascript Axios
+import axios from 'axios';
+
+const res = await axios.post(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chatbot/preguntar',
+  { pregunta: 'Cuáles son los empleos disponibles?' }
+);
+
+const respuesta = res.data.respuesta;
+```
+
+```bash cURL
+curl -X POST \
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chatbot/preguntar' \
+  -H 'Content-Type: application/json' \
+  -d '{"pregunta": "Cuáles son los empleos disponibles?"}'
+```
+</CodeGroup>
+
+### Request Format
+
+<ParamField body="pregunta" type="string" required>
+  User's question or message to the chatbot
+</ParamField>
+
+### Response Format
+
+```json
+{
+  "respuesta": "Estas son algunas oportunidades activas hoy:\n\nCuidador de adulto mayor - $550/mes\nUbicación: Quito, Pichincha\nFecha límite: 2024-04-01"
+}
+```
+
+<ResponseField name="respuesta" type="string">
+  Chatbot's response text, may include formatting or job listings
+</ResponseField>
+
+## Chatbot Implementation
+
+**Component:** `source/src/components/ChatBot/ChatBubble.jsx:1`
+
+### State Management
+
+```javascript
+const [abierto, setAbierto] = useState(false);
+const [pregunta, setPregunta] = useState('');
+const [conversacion, setConversacion] = useState([]);
+const [cargando, setCargando] = useState(false);
+const [error, setError] = useState(null);
+```
+
+### Sending Questions
+
+```javascript
+const enviarPregunta = async () => {
+  if (!pregunta.trim()) return;
+
+  // Add user message to conversation
+  setConversacion((prev) => [...prev, { from: 'user', text: pregunta }]);
+  setPregunta('');
+  setCargando(true);
+  setError(null);
+
+  try {
+    // Check for special keywords
+    if (
+      pregunta.toLowerCase().includes('postular') ||
+      pregunta.toLowerCase().includes('registrar')
+    ) {
+      // Hardcoded response for registration questions
+      setConversacion((prev) => [
+        ...prev,
+        {
+          from: 'bot',
+          text: 'Para postularte a Calma, primero debes registrarte en nuestra plataforma. Puedes hacerlo desde aquí 👉 <a href="/registro">Ir al registro</a>',
+        },
+      ]);
+    } else {
+      // Call chatbot API
+      const res = await axios.post(
+        'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chatbot/preguntar',
+        { pregunta }
+      );
+      
+      if (res.data && res.data.respuesta) {
+        setConversacion((prev) => [
+          ...prev,
+          { from: 'bot', text: res.data.respuesta }
+        ]);
+      } else {
+        setConversacion((prev) => [
+          ...prev,
+          { from: 'bot', text: '⚠️ No se pudo obtener una respuesta válida del chatbot.' }
+        ]);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    setError('Error al comunicarse con el chatbot.');
+    setConversacion((prev) => [
+      ...prev,
+      { from: 'bot', text: '⚠️ Hubo un error al obtener respuesta.' }
+    ]);
+  } finally {
+    setCargando(false);
+  }
+};
+```
+
+### Welcome Message
+
+When the chat opens for the first time:
+
+```javascript
+const toggleChat = () => {
+  setAbierto(!abierto);
+  if (!abierto && conversacion.length === 0) {
+    setConversacion([
+      {
+        from: 'bot',
+        type: 'welcome',
+        text: `¡Bienvenida a Calma! Soy tu asistente virtual y estoy aquí para ayudarte.`,
+      },
+    ]);
+  }
+};
+```
+
+### Typing Indicator
+
+```javascript
+const TypingIndicator = () => (
+  <div className="chat-message bot typing-indicator">
+    🤖 Está escribiendo
+    <span className="dots">
+      <span>.</span>
+      <span>.</span>
+      <span>.</span>
+    </span>
+  </div>
+);
+```
+
+## Message Structure
+
+Conversation messages follow this structure:
+
+```javascript
+{
+  from: 'user' | 'bot',
+  text: string,
+  type?: 'welcome' // Optional for welcome messages
+}
+```
+
+## Special Response Formatting
+
+The chatbot can return formatted job listings:
+
+```javascript
+const renderBotMessage = (text) => {
+  // Check if response contains job offer separators
+  if (text.includes('━━━━━━━━━━━━━━━━━━━━━━')) {
+    const ofertas = text.split('━━━━━━━━━━━━━━━━━━━━━━')
+      .filter((o) => o.trim() !== '');
+    
+    return (
+      <>
+        <div className="bot-intro-bubble">
+          🤖 Estas son algunas oportunidades activas hoy:
+        </div>
+        {ofertas.map((oferta, idx) => (
+          <div
+            key={idx}
+            className="chat-message bot oferta-bubble"
+            dangerouslySetInnerHTML={{ 
+              __html: oferta.trim().replace(/\n/g, '<br />') 
+            }}
+          />
+        ))}
+      </>
+    );
+  }
+  
+  // Render with markdown-style links
+  return (
+    <span
+      dangerouslySetInnerHTML={{
+        __html: text.replace(
+          /\[(.*?)\]\((.*?)\)/g,
+          '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        ),
+      }}
+    />
+  );
+};
+```
+
+## WebSocket API
+
+### Base URL
+
+```
+ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws
+```
+
+### Connection Setup
+
+Used for video call signaling at **source/src/videollamada.jsx:33**:
+
+```javascript
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
+
+const socket = new SockJS(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws'
+);
+const stompClient = Stomp.over(socket);
+
+stompClient.connect({}, () => {
+  console.log('Connected to WebSocket');
+  
+  // Subscribe to personal channel
+  stompClient.subscribe(`/usuario/${userId}/respuestas`, (msg) => {
+    const data = JSON.parse(msg.body);
+    handleMessage(data);
+  });
+});
+```
+
+### Subscribe to Channel
+
+Subscribe to user-specific message channels:
+
+```javascript
+stompClient.subscribe(`/usuario/${emisor}/respuestas`, (msg) => {
+  const data = JSON.parse(msg.body);
+  // Handle incoming message
+  manejarSeñal(data);
+});
+```
+
+### Send Message
+
+Send messages through STOMP:
+
+```javascript
+stompClient.send(
+  `/app/llamada/${receptor}`,
+  {},
+  JSON.stringify({
+    tipo: 'oferta',
+    descripcion: sessionDescription
+  })
+);
+```
+
+### Message Types
+
+WebSocket messages for video calls:
+
+<Tabs>
+  <Tab title="Offer">
+    ```json
+    {
+      "tipo": "oferta",
+      "descripcion": {
+        "type": "offer",
+        "sdp": "v=0\r\no=- ..."
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Answer">
+    ```json
+    {
+      "tipo": "respuesta",
+      "descripcion": {
+        "type": "answer",
+        "sdp": "v=0\r\no=- ..."
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="ICE Candidate">
+    ```json
+    {
+      "tipo": "ice",
+      "candidato": {
+        "candidate": "candidate:...",
+        "sdpMLineIndex": 0,
+        "sdpMid": "0"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Chatbot Use Cases
+
+The chatbot can handle various topics:
+
+<CardGroup cols={2}>
+  <Card title="Job Inquiries" icon="briefcase">
+    Questions about available positions, requirements, and salaries
+  </Card>
+  <Card title="Registration" icon="user-plus">
+    How to register as caregiver or contractor
+  </Card>
+  <Card title="Platform Info" icon="circle-info">
+    General questions about CALMA services
+  </Card>
+  <Card title="Requirements" icon="clipboard-check">
+    Qualifications and prerequisites
+  </Card>
+</CardGroup>
+
+## UI Components
+
+### Chat Bubble Button
+
+```javascript
+<button className="chat-bubble" onClick={toggleChat}>
+  💬
+</button>
+```
+
+### Chat Panel
+
+```javascript
+{abierto && (
+  <div className="chat-panel">
+    <div className="chat-header">
+      <h4>🤖 Asistente de Empleos</h4>
+      <button className="close-btn" onClick={toggleChat}>
+        ×
+      </button>
+    </div>
+
+    <div className="chat-messages">
+      {conversacion.map((msg, idx) => (
+        <div key={idx} className={`chat-message ${msg.from}`}>
+          {msg.from === 'user' ? '👤' : '🤖'} {msg.text}
+        </div>
+      ))}
+      {cargando && <TypingIndicator />}
+    </div>
+
+    <form onSubmit={handleSubmit} className="chat-form">
+      <input
+        type="text"
+        value={pregunta}
+        onChange={(e) => setPregunta(e.target.value)}
+        placeholder="Escribe tu pregunta..."
+        disabled={cargando}
+      />
+      <button type="submit" disabled={cargando || !pregunta.trim()}>
+        Enviar
+      </button>
+    </form>
+  </div>
+)}
+```
+
+## Integration with Notifications
+
+The chat system can trigger notifications:
+
+```javascript
+const response = await axios.post(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/crear-notificacion-mensaje',
+  {
+    emisorId: userId,
+    receptorId: targetUserId,
+    mensaje: messageText,
+    tipo: 'mensaje'
+  }
+);
+```
+
+**Location:** Used in **source/src/App.jsx**
+
+## Usage Example: Intelligent Chatbot
+
+**Location:** `source/src/components/ModuloAspirante/PostulacionesAspirante/ChatbotInteligente.jsx`
+
+```javascript
+import { useState } from 'react';
+import axios from 'axios';
+
+const ChatbotInteligente = ({ aspiranteId }) => {
+  const [abierto, setAbierto] = useState(false);
+  const [pregunta, setPregunta] = useState('');
+  const [conversacion, setConversacion] = useState([]);
+
+  const enviarPregunta = async () => {
+    if (!pregunta.trim()) return;
+
+    // Add user message
+    setConversacion(prev => [
+      ...prev,
+      { from: 'user', text: pregunta }
+    ]);
+
+    try {
+      // Get aspirante's applications for context
+      const postulaciones = await axios.get(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/realizar/aspirante/${aspiranteId}`
+      );
+
+      // Send to chatbot with context
+      const response = await axios.post(
+        'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/chatbot/preguntar',
+        {
+          pregunta,
+          contexto: {
+            postulaciones: postulaciones.data.length,
+            aspiranteId
+          }
+        }
+      );
+
+      // Add bot response
+      setConversacion(prev => [
+        ...prev,
+        { from: 'bot', text: response.data.respuesta }
+      ]);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+
+    setPregunta('');
+  };
+
+  return (
+    <div className="chatbot-container">
+      {/* Chatbot UI */}
+    </div>
+  );
+};
+```
+
+## Endpoints Summary
+
+| Protocol | Endpoint | Description |
+|----------|----------|-------------|
+| POST | `/api/chatbot/preguntar` | Ask chatbot a question |
+| WS | `/ws` | WebSocket connection for real-time messaging |
+| STOMP | `/app/llamada/{receptor}` | Send video call signaling |
+| STOMP | `/usuario/{userId}/respuestas` | Subscribe to user messages |
+| POST | `/api/notificaciones/crear-notificacion-mensaje` | Create chat notification |
+
+## Related APIs
+
+<CardGroup cols={2}>
+  <Card title="Notifications" icon="bell" href="/api/notifications">
+    Chat-related notifications
+  </Card>
+  <Card title="Video Calls" icon="video" href="/features/video-calls">
+    WebSocket video call signaling
+  </Card>
+  <Card title="Applications" icon="file-contract" href="/api/applications">
+    Context for chatbot responses
+  </Card>
+  <Card title="Jobs" icon="briefcase" href="/api/jobs">
+    Job data for chatbot recommendations
+  </Card>
+</CardGroup>
+
+<Info>
+  The chatbot can provide intelligent responses about jobs, platform features, and user-specific information by accessing various API endpoints.
+</Info>
+
+<Warning>
+  The WebSocket connection uses HTTP for SockJS handshake. Ensure proper CORS and security configuration in production.
+</Warning>

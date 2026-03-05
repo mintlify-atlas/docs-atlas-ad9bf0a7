@@ -1,0 +1,528 @@
+---
+title: 'Candidate Management'
+description: 'Manage job applications and candidate selection'
+---
+
+# Postulaciones Component
+
+Manage job applications from aspirants with acceptance/rejection workflow and AI-powered recommendations.
+
+## Component Location
+
+`src/components/ModuloContratante/Postulaciones/Postulaciones.jsx`
+
+## Component Structure
+
+```javascript
+const Postulaciones = () => {
+  const { userId } = useParams();
+  const [realizaciones, setRealizaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filtroTitulo, setFiltroTitulo] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
+  const [procesandoEstados, setProcesandoEstados] = useState({});
+  const [calificacionesStatus, setCalificacionesStatus] = useState({});
+  const [mostrarRecomendaciones, setMostrarRecomendaciones] = useState(false);
+}
+```
+
+## State Management
+
+| State | Type | Purpose |
+|-------|------|--------|
+| `realizaciones` | array | List of applications |
+| `loading` | boolean | Loading state |
+| `error` | string/null | Error message |
+| `filtroTitulo` | string | Filter by job title |
+| `filtroFecha` | string | Filter by date |
+| `procesandoEstados` | object | Track processing state per application |
+| `calificacionesStatus` | object | Track rating status per application |
+| `mostrarRecomendaciones` | boolean | AI recommendation modal visibility |
+
+## Data Fetching
+
+```javascript
+useEffect(() => {
+  const obtenerRealizaciones = async () => {
+    try {
+      const response = await axios.get(
+        `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/postulacion/${userId}/realizaciones`
+      );
+      setRealizaciones(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setError(`Error al cargar postulaciones: ${err.message}`);
+      setRealizaciones([]);
+      toast.error('Error al cargar postulaciones');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (userId) {
+    obtenerRealizaciones();
+  }
+}, [userId]);
+```
+
+## Application Data Structure
+
+```javascript
+{
+  id_realizar: number,
+  fecha: string,
+  aspirante: {
+    idAspirante: number,
+    usuario: {
+      nombres: string,
+      apellidos: string,
+      correo: string
+    }
+  },
+  postulacion: {
+    id_postulacion: number,
+    estado: boolean | null, // null=pending, true=accepted, false=rejected
+    postulacion_empleo: {
+      id_postulacion_empleo: number,
+      titulo: string,
+      descripcion: string,
+      salario_estimado: number,
+      turno: string,
+      requisitos: string
+    }
+  }
+}
+```
+
+## Status Management
+
+### Check for Existing Rating
+
+```javascript
+const verificarCalificacion = async (idPostulacion, idContratante) => {
+  try {
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/calificaciones/existe/${idPostulacion}/${idContratante}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error al verificar calificación:', error);
+    return false;
+  }
+};
+
+useEffect(() => {
+  const verificarCalificacionesExistentes = async () => {
+    if (Array.isArray(realizaciones) && realizaciones.length > 0) {
+      const status = {};
+      for (const realizacion of realizaciones) {
+        if (realizacion.postulacion?.id_postulacion) {
+          const tieneCalificacion = await verificarCalificacion(
+            realizacion.postulacion.id_postulacion,
+            userId
+          );
+          status[realizacion.postulacion.id_postulacion] = tieneCalificacion;
+        }
+      }
+      setCalificacionesStatus(status);
+    }
+  };
+  
+  verificarCalificacionesExistentes();
+}, [realizaciones, userId]);
+```
+
+### Confirmation Modal for Rated Applications
+
+```javascript
+const mostrarModalConfirmacion = (aspiranteName, jobTitle) => {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.innerHTML = `
+      <div style="/* modal styles */">
+        <h3>¡Atención!</h3>
+        <p>La postulación de <strong>${aspiranteName}</strong> para 
+           <strong>"${jobTitle}"</strong> ya tiene una calificación asociada.</p>
+        <p>Si la rechazas, la calificación permanecerá en el sistema.</p>
+        <button id="cancelar">Cancelar</button>
+        <button id="continuar">Rechazar Anyway</button>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelector('#cancelar').onclick = () => {
+      document.body.removeChild(modal);
+      resolve(false);
+    };
+    
+    modal.querySelector('#continuar').onclick = () => {
+      document.body.removeChild(modal);
+      resolve(true);
+    };
+  });
+};
+```
+
+### Update Application Status
+
+```javascript
+const actualizarEstado = async (
+  idPostulacion,
+  idPostulacionEmpleo,
+  nuevoEstado,
+  idAspirante,
+  aspiranteName,
+  jobTitle
+) => {
+  setProcesandoEstados(prev => ({ ...prev, [idPostulacion]: true }));
+  
+  try {
+    // Check for rating before rejection
+    if (nuevoEstado === false) {
+      const tieneCalificacion = await verificarCalificacion(idPostulacion, userId);
+      
+      if (tieneCalificacion) {
+        const confirmar = await mostrarModalConfirmacion(aspiranteName, jobTitle);
+        
+        if (!confirmar) {
+          setProcesandoEstados(prev => ({ ...prev, [idPostulacion]: false }));
+          toast.info('Operación cancelada.');
+          return;
+        }
+      }
+    }
+    
+    await axios.put(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/postulacion/actualizar/${idPostulacion}/${userId}/${idAspirante}`,
+      {
+        estado: nuevoEstado,
+        postulacion_empleo: {
+          id_postulacion_empleo: idPostulacionEmpleo
+        }
+      }
+    );
+    
+    const mensaje = nuevoEstado === null
+      ? '🟮 Postulación marcada como pendiente'
+      : nuevoEstado
+        ? '✅ Postulación aceptada correctamente'
+        : '❌ Postulación rechazada correctamente';
+    
+    toast[nuevoEstado === null ? 'info' : nuevoEstado ? 'success' : 'error'](mensaje);
+    
+    // Update local state
+    setRealizaciones(prev =>
+      prev.map(r => {
+        if (r.postulacion?.id_postulacion === idPostulacion) {
+          return {
+            ...r,
+            postulacion: {
+              ...r.postulacion,
+              estado: nuevoEstado
+            }
+          };
+        }
+        return r;
+      })
+    );
+    
+    if (nuevoEstado === true) {
+      setCalificacionesStatus(prev => ({ ...prev, [idPostulacion]: false }));
+    }
+  } catch (error) {
+    toast.error('❌ Error al actualizar la postulación');
+  } finally {
+    setProcesandoEstados(prev => ({ ...prev, [idPostulacion]: false }));
+  }
+};
+```
+
+## Filtering
+
+```javascript
+const filtradas = Array.isArray(realizaciones) ? realizaciones.filter(r => {
+  const titulo = r.postulacion?.postulacion_empleo?.titulo?.toLowerCase() || '';
+  const fechaPostulacion = r.fecha ? formatoLocal(r.fecha) : '';
+  
+  if (filtroTitulo) {
+    return titulo.includes(filtroTitulo.toLowerCase());
+  }
+  
+  if (filtroFecha) {
+    return fechaPostulacion === filtroFecha;
+  }
+  
+  return true;
+}) : [];
+
+const handleTituloChange = (e) => {
+  setFiltroTitulo(e.target.value);
+  setFiltroFecha('');
+};
+
+const handleFechaChange = (e) => {
+  setFiltroFecha(e.target.value);
+  setFiltroTitulo('');
+};
+```
+
+## Application Card Rendering
+
+```jsx
+<div className={styles.postulacionesCardsGrid}>
+  {filtradas.map((r) => {
+    const { id_realizar, fecha, aspirante, postulacion } = r;
+    const usuario = aspirante?.usuario;
+    const publicacion = postulacion?.postulacion_empleo;
+    const tieneCalificacion = calificacionesStatus[postulacion?.id_postulacion];
+    const estaProcesando = procesandoEstados[postulacion?.id_postulacion];
+    const estaAceptada = postulacion?.estado === true;
+    const estaRechazada = postulacion?.estado === false;
+    
+    return (
+      <div className={styles.postulacionesApplicationCard} key={id_realizar}>
+        {/* Header with applicant info */}
+        <div className={styles.postulacionesCardHeader}>
+          <div className={styles.postulacionesApplicantInfo}>
+            <div className={styles.postulacionesApplicantAvatar}>
+              {usuario ? `${usuario.nombres[0]}${usuario.apellidos[0]}` : 'ND'}
+            </div>
+            <div>
+              <h3>{usuario ? `${usuario.nombres} ${usuario.apellidos}` : 'No disponible'}
+                {tieneCalificacion && (
+                  <span style={{ backgroundColor: '#28a745' }}>⭐ Calificado</span>
+                )}
+              </h3>
+              <p>📧 {usuario?.correo}</p>
+            </div>
+          </div>
+          <div className={getEstadoClass(postulacion?.estado)}>
+            {getEstadoTexto(postulacion?.estado)}
+          </div>
+        </div>
+        
+        {/* Job details */}
+        <div className={styles.postulacionesCardContent}>
+          <h4>💼 {publicacion?.titulo}</h4>
+          <p>{publicacion?.descripcion}</p>
+          
+          <div className={styles.postulacionesDetailsGrid}>
+            <div>💵 Salario: ${publicacion?.salario_estimado?.toLocaleString()}</div>
+            <div>☀️ Turno: {publicacion?.turno}</div>
+          </div>
+          
+          {publicacion?.requisitos && (
+            <div>
+              <h5>✅ Requisitos</h5>
+              <p>{publicacion.requisitos}</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Action buttons */}
+        <div className={styles.postulacionesCardActions}>
+          <button
+            className={styles.postulacionesBtnAccept}
+            onClick={() => actualizarEstado(
+              postulacion?.id_postulacion,
+              publicacion?.id_postulacion_empleo,
+              true,
+              aspirante?.idAspirante,
+              usuario ? `${usuario.nombres} ${usuario.apellidos}` : 'Aspirante',
+              publicacion?.titulo
+            )}
+            disabled={estaAceptada || estaProcesando}
+          >
+            {estaAceptada ? 'Ya Aceptada ✓' : 'Aceptar'}
+          </button>
+          
+          <button
+            className={styles.postulacionesBtnReject}
+            onClick={() => actualizarEstado(
+              postulacion?.id_postulacion,
+              publicacion?.id_postulacion_empleo,
+              false,
+              aspirante?.idAspirante,
+              usuario ? `${usuario.nombres} ${usuario.apellidos}` : 'Aspirante',
+              publicacion?.titulo
+            )}
+            disabled={estaAceptada || estaProcesando}
+            style={{
+              backgroundColor: tieneCalificacion && !estaAceptada ? '#dc3545' : '',
+              border: tieneCalificacion && !estaAceptada ? '2px solid #ff6b6b' : ''
+            }}
+          >
+            {estaAceptada ? 'Bloqueado' : tieneCalificacion ? 'Rechazar ⚠️' : 'Rechazar'}
+          </button>
+          
+          <button
+            className={styles.postulacionesBtnCv}
+            onClick={() => verCV(aspirante?.idAspirante)}
+          >
+            📄 Ver CV
+          </button>
+        </div>
+      </div>
+    );
+  })}
+</div>
+```
+
+## AI Recommendations
+
+### AI Button in Stats Bar
+
+```jsx
+<div className={styles.postulacionesStatsBar}>
+  <div className={styles.postulacionesStatItem}>
+    <span>{filtradas.length}</span>
+    <span>Postulaciones</span>
+  </div>
+  <div className={styles.postulacionesStatItem}>
+    <span>{filtradas.filter(r => r.postulacion?.estado === true).length}</span>
+    <span>Aceptadas</span>
+  </div>
+  <div className={styles.postulacionesStatItem}>
+    <span>{filtradas.filter(r => r.postulacion?.estado === null).length}</span>
+    <span>Pendientes</span>
+  </div>
+  
+  {filtradas.length > 0 && (
+    <button
+      onClick={() => setMostrarRecomendaciones(true)}
+      className={styles.postulacionesAIButton}
+      style={{
+        background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 25%, #a855f7 50%, #9333ea 75%, #8b5cf6 100%)',
+        backgroundSize: '300% 300%',
+        animation: 'gradientFlow 4s ease infinite'
+      }}
+    >
+      <i className="fas fa-robot"></i>
+      <span>🧠 Recomendación IA</span>
+    </button>
+  )}
+</div>
+```
+
+### AI Modal Component
+
+```jsx
+import RecomendacionAspirantes from './RecomendacionAspirantes';
+
+{mostrarRecomendaciones && (
+  <RecomendacionAspirantes
+    userId={userId}
+    onClose={() => setMostrarRecomendaciones(false)}
+  />
+)}
+```
+
+## Empty State
+
+```jsx
+if (!Array.isArray(realizaciones) || realizaciones.length === 0) {
+  return (
+    <div className={styles.postulacionesEmptyStateContainer}>
+      <div className={styles.postulacionesEmptyIcon}>📭</div>
+      <h3>¡No hay postulaciones aún!</h3>
+      <p>Cuando los aspirantes se postulen a tus trabajos, aparecerán aquí.</p>
+      
+      <div className={styles.postulacionesEmptyActions}>
+        <button onClick={() => navigate(`/moduloContratante/ListaPublicaciones?userId=${userId}`)}>
+          <i className="fas fa-briefcase"></i> Ver mis ofertas
+        </button>
+        <button onClick={() => window.location.reload()}>
+          <i className="fas fa-refresh"></i> Actualizar
+        </button>
+      </div>
+      
+      <div className={styles.postulacionesEmptyTips}>
+        <h4>💡 Consejos para atraer más postulaciones:</h4>
+        <ul>
+          <li>Asegúrate de que tus ofertas tengan descripciones claras</li>
+          <li>Incluye un salario competitivo</li>
+          <li>Revisa que la fecha límite sea suficiente</li>
+          <li>Publica en categorías relevantes</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+```
+
+## Navigation Functions
+
+```javascript
+const verCV = (idAspirante) => {
+  navigate(`/cv-aspirante/${idAspirante}`);
+};
+```
+
+## Date Formatting
+
+```javascript
+const formatoLocal = (fecha) => {
+  const d = new Date(fecha);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+```
+
+## Status Helper Functions
+
+```javascript
+const getEstadoClass = (estado) => {
+  if (estado === null) return `${styles.postulacionesEstadoBadge} ${styles.postulacionesEstadoPendiente}`;
+  if (estado) return `${styles.postulacionesEstadoBadge} ${styles.postulacionesEstadoAceptada}`;
+  return `${styles.postulacionesEstadoBadge} ${styles.postulacionesEstadoRechazada}`;
+};
+
+const getEstadoTexto = (estado) => {
+  if (estado === null) return '🟮 Pendiente';
+  if (estado) return '✅ Aceptada';
+  return '❌ Rechazada';
+};
+```
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/postulacion/{userId}/realizaciones` | GET | Get all applications |
+| `/api/postulacion/actualizar/{id}/{userId}/{aspiranteId}` | PUT | Update application status |
+| `/api/calificaciones/existe/{postId}/{contratanteId}` | GET | Check rating exists |
+
+## Styling
+
+CSS Module: `src/components/ModuloContratante/Postulaciones/Postulaciones.module.css`
+
+## Toast Notifications
+
+```javascript
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+<ToastContainer
+  position="top-right"
+  autoClose={5000}
+  hideProgressBar={false}
+  newestOnTop={false}
+  closeOnClick
+  rtl={false}
+  pauseOnFocusLoss
+  draggable
+  pauseOnHover
+  theme="light"
+/>
+```
+
+## Routing
+
+From `main.jsx:203`:
+
+```javascript
+<Route path="/postulaciones/:userId" element={<Postulaciones />} />
+```

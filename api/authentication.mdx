@@ -1,0 +1,379 @@
+---
+title: 'Authentication'
+description: 'User authentication, login, and session management'
+icon: 'key'
+---
+
+## Overview
+
+CALMA uses a simple authentication system with email and password credentials. User data is stored in localStorage after successful login.
+
+## Base URL
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/login
+```
+
+## Login Endpoint
+
+### POST /api/login/auth
+
+Authenticates a user with email and password credentials.
+
+**Service Location:** `source/src/servicios/LoginService.js:1`
+
+<CodeGroup>
+```javascript Service Implementation
+import axios from 'axios';
+
+const API_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/login';
+
+export const login = async (username, password) => {
+  try {
+    const params = new URLSearchParams();
+    params.append('correo', username);
+    params.append('contrasena', password);
+
+    const response = await axios.post(
+      `${API_URL}/auth`,
+      params.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    if (response.data.success) {
+      return response.data;
+    } else {
+      throw new Error(response.data.message || 'Error desconocido');
+    }
+  } catch (err) {
+    if (err.response) {
+      const errorMessage = err.response.data.message || 'Error desconocido';
+      if (err.response.status === 401) {
+        throw new Error(errorMessage);
+      } else {
+        throw new Error('Error al conectar con el servidor');
+      }
+    }
+    throw new Error('No se pudo conectar con el servidor');
+  }
+};
+```
+
+```bash cURL Example
+curl -X POST \
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/login/auth' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'correo=user@example.com&contrasena=mypassword'
+```
+
+```javascript Usage Example
+import { login } from './servicios/LoginService';
+
+try {
+  const result = await login('user@example.com', 'password123');
+  
+  console.log('Login successful:', result);
+  console.log('User ID:', result.usuarioId);
+  console.log('Role:', result.rol);
+  console.log('User data:', result.usuario);
+  
+  // Store in localStorage
+  localStorage.setItem('userData', JSON.stringify(result));
+} catch (error) {
+  console.error('Login failed:', error.message);
+}
+```
+</CodeGroup>
+
+### Request Parameters
+
+<ParamField body="correo" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="contrasena" type="string" required>
+  User's password
+</ParamField>
+
+### Response Format
+
+<ResponseField name="success" type="boolean">
+  Indicates if authentication was successful
+</ResponseField>
+
+<ResponseField name="usuarioId" type="number">
+  Unique user ID
+</ResponseField>
+
+<ResponseField name="rol" type="string">
+  User role: `ASPIRANTE`, `CONTRATANTE`, or `ADMIN`
+</ResponseField>
+
+<ResponseField name="usuario" type="object">
+  Complete user object with profile information
+  
+  <Expandable title="usuario properties">
+    <ResponseField name="id_usuario" type="number">
+      User ID
+    </ResponseField>
+    
+    <ResponseField name="nombres" type="string">
+      User's first name(s)
+    </ResponseField>
+    
+    <ResponseField name="apellidos" type="string">
+      User's last name(s)
+    </ResponseField>
+    
+    <ResponseField name="correo" type="string">
+      Email address
+    </ResponseField>
+    
+    <ResponseField name="cedula" type="string">
+      National ID number
+    </ResponseField>
+    
+    <ResponseField name="telefono" type="string">
+      Phone number
+    </ResponseField>
+    
+    <ResponseField name="foto_perfil" type="string">
+      Profile photo URL
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="aspiranteId" type="number" optional>
+  Only present if user role is ASPIRANTE
+</ResponseField>
+
+<ResponseField name="contratanteId" type="number" optional>
+  Only present if user role is CONTRATANTE
+</ResponseField>
+
+### Success Response Example
+
+```json
+{
+  "success": true,
+  "usuarioId": 42,
+  "rol": "ASPIRANTE",
+  "aspiranteId": 15,
+  "usuario": {
+    "id_usuario": 42,
+    "nombres": "María",
+    "apellidos": "García Pérez",
+    "correo": "maria.garcia@example.com",
+    "cedula": "1234567890",
+    "telefono": "0987654321",
+    "foto_perfil": "https://example.com/photos/maria.jpg",
+    "rol": "ASPIRANTE"
+  }
+}
+```
+
+### Error Response Example
+
+```json
+{
+  "success": false,
+  "message": "Credenciales inválidas"
+}
+```
+
+## Error Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| 200 | Login successful |
+| 401 | Invalid credentials |
+| 500 | Server error |
+
+## Content Type
+
+<Warning>
+  The login endpoint uses `application/x-www-form-urlencoded` content type, not JSON. This is different from most other API endpoints.
+</Warning>
+
+Incorrect:
+```javascript
+// ❌ This won't work
+axios.post(url, { correo: email, contrasena: password })
+```
+
+Correct:
+```javascript
+// ✅ Use URLSearchParams
+const params = new URLSearchParams();
+params.append('correo', email);
+params.append('contrasena', password);
+axios.post(url, params.toString(), {
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+})
+```
+
+## LocalStorage Management
+
+After successful login, user data is stored in localStorage:
+
+### Storing User Data
+
+```javascript
+const userData = {
+  usuarioId: result.usuarioId,
+  rol: result.rol,
+  usuario: result.usuario,
+  aspiranteId: result.aspiranteId, // if applicable
+  contratanteId: result.contratanteId // if applicable
+};
+
+localStorage.setItem('userData', JSON.stringify(userData));
+```
+
+### Retrieving User Data
+
+```javascript
+const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+
+const userId = userData.usuarioId || userData.userId;
+const role = userData.rol;
+const aspiranteId = userData.aspiranteId;
+const contratanteId = userData.contratanteId;
+```
+
+### Checking Authentication Status
+
+```javascript
+const isAuthenticated = () => {
+  const userData = localStorage.getItem('userData');
+  return userData !== null;
+};
+
+const getUserRole = () => {
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  return userData.rol || null;
+};
+```
+
+### Logout
+
+```javascript
+const logout = () => {
+  localStorage.removeItem('userData');
+  // Redirect to login page
+  window.location.href = '/login';
+};
+```
+
+## User Roles
+
+The system supports three user roles:
+
+<Tabs>
+  <Tab title="ASPIRANTE">
+    **Caregiver/Applicant**
+    
+    - Can browse and apply for jobs
+    - Manages personal CV
+    - Receives notifications for applications
+    - Has access to aspirante module
+    
+    Response includes: `aspiranteId`
+  </Tab>
+  
+  <Tab title="CONTRATANTE">
+    **Contractor/Employer**
+    
+    - Posts job opportunities
+    - Reviews applications
+    - Manages patient records
+    - Rates caregivers
+    
+    Response includes: `contratanteId`
+  </Tab>
+  
+  <Tab title="ADMIN">
+    **Administrator**
+    
+    - Full system access
+    - User management
+    - System configuration
+  </Tab>
+</Tabs>
+
+## Password Reset
+
+The system includes password reset functionality via email:
+
+```javascript
+// Get user by email for password reset
+const resUsuario = await fetch(
+  `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/por-correo?correo=${email}`
+);
+```
+
+See [Users API](/api/users) for more details on user management.
+
+## Session Management
+
+<Info>
+  CALMA currently uses localStorage for session management. For production:
+  - Consider implementing JWT tokens
+  - Add token expiration
+  - Implement refresh token mechanism
+  - Add automatic logout on token expiry
+</Info>
+
+## Security Considerations
+
+<Warning>
+  **Security Recommendations:**
+  - Always use HTTPS in production
+  - Implement rate limiting on login endpoint
+  - Add CAPTCHA for brute force protection
+  - Hash passwords on the server side
+  - Implement session timeout
+  - Never log passwords
+  - Consider implementing 2FA
+</Warning>
+
+## Component Integration
+
+Login component at **source/src/components/Login/Login.jsx** uses the authentication service:
+
+```javascript
+import { login } from '../../servicios/LoginService';
+
+const handleLogin = async (email, password) => {
+  try {
+    const result = await login(email, password);
+    
+    // Store user data
+    localStorage.setItem('userData', JSON.stringify(result));
+    
+    // Redirect based on role
+    if (result.rol === 'ASPIRANTE') {
+      navigate(`/moduloAspirante?userId=${result.usuarioId}`);
+    } else if (result.rol === 'CONTRATANTE') {
+      navigate(`/moduloContratante?userId=${result.usuarioId}`);
+    }
+  } catch (error) {
+    setError(error.message);
+  }
+};
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Users API" icon="users" href="/api/users">
+    User management and profile endpoints
+  </Card>
+  <Card title="Registration" icon="user-plus" href="/api/users#registration">
+    New user registration endpoints
+  </Card>
+</CardGroup>

@@ -1,0 +1,256 @@
+---
+title: 'Video Calls'
+description: 'WebRTC-based video calling system for real-time communication between users'
+icon: 'video'
+---
+
+## Overview
+
+CALMA implements a WebRTC-based video calling system using STOMP over WebSockets for signaling. The system enables real-time video communication between caregivers and patients/contractors.
+
+## Architecture
+
+<CardGroup cols={2}>
+  <Card title="WebRTC Connection" icon="diagram-project">
+    Peer-to-peer video/audio streaming using Google STUN servers
+  </Card>
+  <Card title="STOMP Signaling" icon="signal-stream">
+    WebSocket-based signaling for connection negotiation
+  </Card>
+</CardGroup>
+
+## Implementation
+
+### Core Components
+
+The video call implementation is in `videollamada.jsx` at **source/src/videollamada.jsx:1**.
+
+#### ICE Configuration
+
+```javascript
+const servers = {
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+};
+```
+
+The system uses Google's public STUN server for NAT traversal.
+
+### WebSocket Connection
+
+<Steps>
+  <Step title="Initialize Camera">
+    Request user media access for video and audio
+    
+    ```javascript
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        localVideo.srcObject = stream;
+        localStream = stream;
+        conectarWebSocket();
+      });
+    ```
+  </Step>
+  
+  <Step title="Connect to STOMP">
+    Establish WebSocket connection for signaling
+    
+    ```javascript
+    const socket = new SockJS(
+      "http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws"
+    );
+    stompClient = Stomp.over(socket);
+    
+    stompClient.connect({}, () => {
+      stompClient.subscribe(`/usuario/${emisor}/respuestas`, (msg) => {
+        const data = JSON.parse(msg.body);
+        manejarSeñal(data);
+      });
+      
+      if (soyElEmisor) iniciarLlamada();
+    });
+    ```
+  </Step>
+  
+  <Step title="Establish Peer Connection">
+    Create WebRTC peer connection and exchange offers/answers
+  </Step>
+</Steps>
+
+### URL Parameters
+
+The video call page expects three query parameters:
+
+<ParamField query="emisor" type="string" required>
+  User ID of the call initiator
+</ParamField>
+
+<ParamField query="receptor" type="string" required>
+  User ID of the call receiver
+</ParamField>
+
+<ParamField query="soyElEmisor" type="boolean" required>
+  Set to "true" if current user is the initiator
+</ParamField>
+
+### Call Flow
+
+#### Initiator (Emisor)
+
+```javascript
+function iniciarLlamada() {
+  peerConnection = new RTCPeerConnection(servers);
+  
+  // Add local stream
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+  });
+  
+  // Handle remote stream
+  peerConnection.ontrack = (event) => {
+    remoteVideo.srcObject = event.streams[0];
+  };
+  
+  // Handle ICE candidates
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      enviarSeñal({
+        tipo: "ice",
+        candidato: event.candidate
+      });
+    }
+  };
+  
+  // Create and send offer
+  peerConnection.createOffer()
+    .then((oferta) => peerConnection.setLocalDescription(oferta))
+    .then(() => {
+      enviarSeñal({
+        tipo: "oferta",
+        descripcion: peerConnection.localDescription
+      });
+    });
+}
+```
+
+#### Signal Handling
+
+```javascript
+function manejarSeñal(data) {
+  if (data.tipo === "oferta") {
+    // Receiver handles offer and creates answer
+    peerConnection.setRemoteDescription(new RTCSessionDescription(data.descripcion))
+      .then(() => peerConnection.createAnswer())
+      .then((respuesta) => peerConnection.setLocalDescription(respuesta))
+      .then(() => {
+        enviarSeñal({
+          tipo: "respuesta",
+          descripcion: peerConnection.localDescription
+        });
+      });
+  } else if (data.tipo === "respuesta") {
+    // Initiator handles answer
+    peerConnection.setRemoteDescription(new RTCSessionDescription(data.descripcion));
+  } else if (data.tipo === "ice" && data.candidato) {
+    // Both parties handle ICE candidates
+    peerConnection.addIceCandidate(new RTCIceCandidate(data.candidato));
+  }
+}
+```
+
+### Sending Signals
+
+Signals are sent via STOMP to the WebSocket endpoint:
+
+```javascript
+function enviarSeñal(mensaje) {
+  stompClient.send(
+    `/app/llamada/${receptor}`,
+    {},
+    JSON.stringify(mensaje)
+  );
+}
+```
+
+## Signal Types
+
+<ResponseField name="tipo" type="string">
+  Signal type: `oferta`, `respuesta`, or `ice`
+</ResponseField>
+
+<ResponseField name="descripcion" type="RTCSessionDescription">
+  SDP description for offer/answer signals
+</ResponseField>
+
+<ResponseField name="candidato" type="RTCIceCandidate">
+  ICE candidate information for connectivity
+</ResponseField>
+
+## Ending a Call
+
+The call can be terminated by clicking the hang-up button:
+
+```javascript
+document.getElementById("colgarBtn").addEventListener("click", () => {
+  if (peerConnection) peerConnection.close();
+  localStream.getTracks().forEach(track => track.stop());
+  window.close();
+});
+```
+
+## HTML Elements
+
+The page requires these HTML elements:
+
+```html
+<video id="localVideo" autoplay muted></video>
+<video id="remoteVideo" autoplay></video>
+<div id="estado">Inicializando...</div>
+<button id="colgarBtn">Colgar</button>
+```
+
+## Usage Example
+
+To initiate a call from user A (ID: 123) to user B (ID: 456):
+
+**User A (Initiator):**
+```
+/videollamada.html?emisor=123&receptor=456&soyElEmisor=true
+```
+
+**User B (Receiver):**
+```
+/videollamada.html?emisor=123&receptor=456&soyElEmisor=false
+```
+
+## Technical Notes
+
+<Info>
+  - The local video is muted to prevent audio feedback
+  - ICE candidates are continuously exchanged during connection establishment
+  - The system requires HTTPS for camera/microphone access in production
+  - STUN server is used for NAT traversal; TURN server may be needed for restrictive networks
+</Info>
+
+<Warning>
+  The current implementation uses HTTP. For production, ensure:
+  - Use HTTPS for secure connections
+  - Implement proper authentication
+  - Consider adding TURN servers for firewall traversal
+  - Add error handling for connection failures
+</Warning>
+
+## Connection States
+
+The `estado` element displays connection status:
+
+- **"Cámara activa"** - Camera initialized successfully
+- **"Conectado a STOMP"** - WebSocket connection established
+- **"Error al acceder a la cámara"** - Camera permission denied
+
+## Browser Compatibility
+
+Requires browsers with WebRTC support:
+- Chrome 23+
+- Firefox 22+
+- Safari 11+
+- Edge 79+

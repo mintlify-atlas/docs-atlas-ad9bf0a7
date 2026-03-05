@@ -1,0 +1,364 @@
+---
+title: 'API Introduction'
+description: 'Overview of the CALMA REST API endpoints and common patterns'
+icon: 'circle-info'
+---
+
+## Overview
+
+The CALMA API is a RESTful service that powers the geriatric care platform, enabling connections between caregivers (aspirantes), contractors (contratantes), and patients (pacientes).
+
+## Base URL
+
+All API requests should be made to:
+
+```
+http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090
+```
+
+<Warning>
+  The current API uses HTTP. For production deployment, ensure HTTPS is configured for secure communication.
+</Warning>
+
+## API Structure
+
+The API is organized into logical resource groups:
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/api/authentication">
+    User login and session management
+  </Card>
+  <Card title="Users" icon="users" href="/api/users">
+    User accounts and profiles
+  </Card>
+  <Card title="Jobs" icon="briefcase" href="/api/jobs">
+    Job postings and publications
+  </Card>
+  <Card title="Applications" icon="file-contract" href="/api/applications">
+    Job applications and postulations
+  </Card>
+  <Card title="Chat" icon="comments" href="/api/chat">
+    Real-time messaging and chatbot
+  </Card>
+  <Card title="Notifications" icon="bell" href="/api/notifications">
+    User notifications system
+  </Card>
+  <Card title="CV Management" icon="id-card" href="/api/cv">
+    Caregiver resumes and profiles
+  </Card>
+  <Card title="Patients" icon="hospital-user" href="/api/patients">
+    Patient records and medical information
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Request Format
+
+Most endpoints accept JSON payloads:
+
+```javascript
+const response = await axios.post(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource',
+  {
+    field1: 'value1',
+    field2: 'value2'
+  },
+  {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+);
+```
+
+### Response Format
+
+Successful responses typically return JSON with the requested data:
+
+```json
+{
+  "id": 123,
+  "field1": "value1",
+  "field2": "value2",
+  "createdAt": "2024-03-15T10:30:00Z"
+}
+```
+
+### Error Handling
+
+Errors return appropriate HTTP status codes with error messages:
+
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "code": "ERROR_CODE"
+}
+```
+
+Common status codes:
+
+| Status | Meaning |
+|--------|----------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 404 | Not Found |
+| 500 | Server Error |
+
+## Standard CRUD Operations
+
+Most resources follow standard REST patterns:
+
+<CodeGroup>
+```javascript GET All
+// List all items
+const response = await axios.get(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource'
+);
+```
+
+```javascript GET One
+// Get specific item
+const response = await axios.get(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource/{id}'
+);
+```
+
+```javascript POST Create
+// Create new item
+const response = await axios.post(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource',
+  data
+);
+```
+
+```javascript PUT Update
+// Update existing item
+const response = await axios.put(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource/{id}',
+  data
+);
+```
+
+```javascript DELETE Remove
+// Delete item
+const response = await axios.delete(
+  'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource/{id}'
+);
+```
+</CodeGroup>
+
+## Nested Resources
+
+Some endpoints use nested relationships:
+
+```
+GET /api/fichas/{id_ficha}/medicamentos
+GET /api/intereses/ficha/{idFicha}
+GET /api/medicamentos/ficha/{idFicha}
+```
+
+## Query Parameters
+
+Filtering and searching use query parameters:
+
+```javascript
+// Search by email
+GET /api/usuarios/por-correo?correo=user@example.com
+
+// Filter by ficha
+GET /api/temas?IdFicha=123
+```
+
+## Service Layer Pattern
+
+The frontend uses service modules to encapsulate API calls:
+
+```javascript
+// servicios/resourceService.js
+import axios from 'axios';
+
+const API_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/resource';
+
+export const getResources = async () => {
+  try {
+    const response = await axios.get(API_URL);
+    return response.data;
+  } catch (error) {
+    throw new Error('Error al obtener recursos: ' + error.message);
+  }
+};
+
+export const getResourceById = async (id) => {
+  try {
+    const response = await axios.get(`${API_URL}/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error('Error al obtener recurso: ' + error.message);
+  }
+};
+
+export const createResource = async (data) => {
+  try {
+    const response = await axios.post(API_URL, data);
+    return response.data;
+  } catch (error) {
+    throw new Error('Error al crear recurso: ' + error.message);
+  }
+};
+```
+
+## Axios Configuration
+
+Some services include global interceptors for error handling:
+
+```javascript
+import axios from 'axios';
+
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('Error en la respuesta:', error);
+    return Promise.reject(error);
+  }
+);
+```
+
+## Relationship Objects
+
+Many resources use nested objects to reference related entities:
+
+```json
+{
+  "id_medicamento": 1,
+  "nombre_medicamento": "Enalapril",
+  "dosis": "10mg",
+  "ficha_paciente": {
+    "id_ficha_paciente": 5
+  }
+}
+```
+
+```json
+{
+  "id_postulacion": 42,
+  "estado": true,
+  "postulacion_empleo": {
+    "id_postulacion_empleo": 15,
+    "titulo": "Cuidador de adulto mayor"
+  },
+  "contratante": {
+    "idContratante": 8
+  }
+}
+```
+
+## Date Handling
+
+Dates are typically ISO 8601 strings:
+
+```json
+{
+  "fecha_registro": "2024-03-15T10:30:00.000Z",
+  "fecha_limite": "2024-04-01"
+}
+```
+
+Frontend formatting:
+
+```javascript
+// Parse and format dates
+const formatDate = (isoString) => {
+  return new Date(isoString).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+// Remove time from ISO string
+const dateOnly = isoString.split('T')[0];
+```
+
+## Boolean Values
+
+Boolean fields are typically used for flags:
+
+```json
+{
+  "comunicacion": false,
+  "usapanal": true,
+  "acompañado": false,
+  "disponibilidad_inmediata": true
+}
+```
+
+## Numeric IDs
+
+All entity IDs are numeric:
+
+```javascript
+// Ensure numeric IDs
+const numericId = Number(id);
+const parsedId = parseInt(idParam);
+```
+
+## Error Messages in Spanish
+
+Error messages are typically in Spanish:
+
+```javascript
+try {
+  const response = await apiCall();
+} catch (error) {
+  throw new Error('Error al obtener datos: ' + error.message);
+}
+```
+
+## WebSocket Endpoints
+
+Real-time features use WebSockets:
+
+```
+ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws
+```
+
+Used for:
+- Video call signaling
+- Real-time chat
+- Live notifications
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/api/authentication">
+    Learn about login and token management
+  </Card>
+  <Card title="Users API" icon="user" href="/api/users">
+    Explore user management endpoints
+  </Card>
+  <Card title="Jobs API" icon="briefcase" href="/api/jobs">
+    Browse job posting endpoints
+  </Card>
+  <Card title="Patients API" icon="hospital" href="/api/patients">
+    Discover patient management
+  </Card>
+</CardGroup>
+
+## Development Tips
+
+<Info>
+  **Best Practices:**
+  - Always validate numeric IDs before API calls
+  - Wrap API calls in try-catch blocks
+  - Use service modules for centralized API logic
+  - Handle errors with user-friendly Spanish messages
+  - Format dates consistently across the application
+</Info>
+
+<Tip>
+  The codebase uses axios for HTTP requests. All service files follow a consistent pattern, making it easy to add new endpoints.
+</Tip>

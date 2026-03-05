@@ -1,0 +1,453 @@
+---
+title: 'Patient Records (Ficha)'
+description: 'Comprehensive patient record system for managing medical information, medications, allergies, interests, and conversation topics'
+icon: 'folder-medical'
+---
+
+## Overview
+
+The Ficha (Patient Record) system is a comprehensive healthcare management module that stores detailed patient information including medical diagnoses, daily routines, medications, allergies, interests, and conversation topics.
+
+## Core Components
+
+<CardGroup cols={2}>
+  <Card title="FichaPaciente" icon="file-medical">
+    Main patient record with medical and daily care information
+  </Card>
+  <Card title="Medicamentos" icon="pills">
+    Patient medications with dosage and frequency
+  </Card>
+  <Card title="Alergias" icon="triangle-exclamation">
+    Food and medication allergies
+  </Card>
+  <Card title="Intereses" icon="heart">
+    Personal interests and hobbies
+  </Card>
+  <Card title="Temas" icon="comments">
+    Preferred conversation topics
+  </Card>
+</CardGroup>
+
+## Patient Record (Ficha) Component
+
+### Location
+
+**source/src/components/FichaPaciente/ficha.jsx:1**
+
+### Data Structure
+
+The main ficha form manages comprehensive patient data:
+
+```javascript
+const formulario = {
+  diagnostico_me_actual: '',      // Current medical diagnosis
+  condiciones_fisicas: '',         // Physical conditions
+  estado_animo: '',                // Mood state
+  comunicacion: false,             // Has communication difficulties
+  otras_comunicaciones: '',        // Communication method description
+  caidas: '',                      // Fall risk level
+  tipo_dieta: '',                  // Diet type
+  alimentacion_asistida: '',       // Assisted feeding needs
+  hora_levantarse: '',             // Wake-up time
+  hora_acostarse: '',              // Bedtime
+  frecuencia_siestas: '',          // Nap frequency
+  frecuencia_baño: '',             // Bath frequency
+  rutina_medica: '',               // Medical routine
+  usapanal: false,                 // Uses diapers
+  acompañado: false,               // Requires accompaniment
+  observaciones: '',               // Additional observations
+  fecha_registro: '',              // Registration date
+  paciente: { id_paciente: null }  // Patient reference
+}
+```
+
+### Service Functions
+
+The ficha service at **source/src/servicios/ficha.js:1** provides:
+
+<CodeGroup>
+```javascript GET All Fichas
+export const getFichas = async () => {
+  const response = await axios.get(
+    'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/fichas'
+  );
+  return response.data;
+};
+```
+
+```javascript GET Ficha by ID
+export const getFichaById = async (id) => {
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/fichas/${id}`
+  );
+  return response.data;
+};
+```
+
+```javascript CREATE Ficha
+export const createFicha = async (ficha) => {
+  const response = await axios.post(
+    'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/fichas',
+    ficha
+  );
+  return response.data;
+};
+```
+
+```javascript UPDATE Ficha
+export const updateFicha = async (id, ficha) => {
+  const response = await axios.put(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/fichas/${id}`,
+    ficha
+  );
+  return response.data;
+};
+```
+</CodeGroup>
+
+### Validation Rules
+
+The component implements comprehensive validation at **source/src/components/FichaPaciente/ficha.jsx:199**:
+
+<Steps>
+  <Step title="Medical Information">
+    - Diagnosis: minimum 5 characters, medical text format
+    - Physical conditions: minimum 3 characters
+    - Mood state: required selection from predefined options
+  </Step>
+  
+  <Step title="Communication">
+    - If communication difficulties checked, description is required (min 3 chars)
+    - Falls risk: required selection (alta/media/baja)
+  </Step>
+  
+  <Step title="Diet and Routines">
+    - Diet type: required selection
+    - Wake/sleep times: must have at least 1 hour difference
+    - Nap and bath frequency: required, allows numbers
+  </Step>
+  
+  <Step title="Medical Care">
+    - Medical routine: required, medical text format
+    - Observations: minimum 5 characters
+    - Registration date: cannot be in the future
+  </Step>
+</Steps>
+
+### Mood Options
+
+```javascript
+const opcionesEstadoAnimo = [
+  { value: 'alegre', label: 'Alegre' },
+  { value: 'triste', label: 'Triste' },
+  { value: 'ansioso', label: 'Ansioso' },
+  { value: 'deprimido', label: 'Deprimido' },
+  { value: 'irritable', label: 'Irritable' },
+  { value: 'calmado', label: 'Calmado' },
+  { value: 'agitado', label: 'Agitado' },
+  { value: 'apático', label: 'Apático' },
+  { value: 'normal', label: 'Normal' }
+];
+```
+
+### Diet Types
+
+```javascript
+const opcionesTipoDieta = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'blanda', label: 'Blanda' },
+  { value: 'liquida', label: 'Líquida' },
+  { value: 'diabetica', label: 'Hipoglucémica' },
+  { value: 'hiposodica', label: 'Hiposódica' },
+  { value: 'hipoproteica', label: 'Hipoproteica' },
+  { value: 'triturada', label: 'Triturada' }
+];
+```
+
+## Medications (Medicamentos)
+
+### Service API
+
+Location: **source/src/servicios/medicacionService.js:1**
+
+<CodeGroup>
+```javascript GET Medications by Ficha
+export const getMedicamentosByFicha = async (idFicha) => {
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/medicamentos/ficha/${idFicha}`
+  );
+  return response.data;
+};
+```
+
+```javascript CREATE Medication
+export const createMedicamento = async (medicamento) => {
+  const response = await axios.post(
+    'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/medicamentos',
+    medicamento
+  );
+  return response.data;
+};
+```
+
+```javascript UPDATE Medication
+export const updateMedicamento = async (id, medicamento) => {
+  const response = await axios.put(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/medicamentos/${id}`,
+    medicamento
+  );
+  return response.data;
+};
+```
+
+```javascript DELETE Medication
+export const deleteMedicamento = async (id) => {
+  await axios.delete(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/medicamentos/${id}`
+  );
+};
+```
+</CodeGroup>
+
+### Medication Data Structure
+
+```javascript
+{
+  id_medicamento: number,
+  nombre_medicamento: string,
+  dosis: string,
+  frecuencia: string,
+  via_administracion: string,
+  observaciones: string,
+  ficha_paciente: {
+    id_ficha_paciente: number
+  }
+}
+```
+
+## Allergies (Alergias)
+
+### Service API
+
+Location: **source/src/servicios/alergiasService.js:1**
+
+```javascript
+const API_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/alergias';
+
+// List all allergies
+export const getAlergias = async () => {
+  const response = await axios.get(`${API_URL}/listar`);
+  return response.data;
+};
+
+// Get specific allergy
+export const getAlergiaById = async (id) => {
+  const response = await axios.get(`${API_URL}/listar/${id}`);
+  return response.data;
+};
+
+// Create new allergy
+export const createAlergia = async (alergia) => {
+  const response = await axios.post(`${API_URL}/crear`, alergia);
+  return response.data;
+};
+
+// Update allergy
+export const updateAlergia = async (id, alergia) => {
+  const response = await axios.put(`${API_URL}/actualizar/${id}`, alergia);
+  return response.data;
+};
+
+// Delete allergy
+export const deleteAlergia = async (id) => {
+  await axios.delete(`${API_URL}/eliminar/${id}`);
+};
+```
+
+### Allergy Types
+
+The system supports two types of allergies:
+
+1. **Food Allergies** (alergiaali.jsx) - Managed via `/api/alergias` endpoints
+2. **Medication Allergies** (alergiamedicamento.jsx) - Similar structure for drug allergies
+
+## Personal Interests (Intereses)
+
+### Service API
+
+Location: **source/src/servicios/interesesPersonalesService.js:1**
+
+<CodeGroup>
+```javascript GET by Ficha
+export const getInteresesByFicha = async (idFicha) => {
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/intereses/ficha/${idFicha}`
+  );
+  return response.data;
+};
+```
+
+```javascript CREATE Interest
+export const createInteres = async (interes) => {
+  const response = await axios.post(
+    'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/intereses',
+    interes
+  );
+  return response.data;
+};
+```
+
+```javascript UPDATE Interest
+export const updateInteres = async (id, interes) => {
+  const response = await axios.put(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/intereses/${id}`,
+    interes
+  );
+  return response.data;
+};
+```
+
+```javascript DELETE Interest
+export const deleteInteres = async (id) => {
+  await axios.delete(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/intereses/${id}`
+  );
+};
+```
+</CodeGroup>
+
+## Conversation Topics (Temas)
+
+### Service API
+
+Location: **source/src/servicios/temaConversacionService.js:1**
+
+```javascript
+const API_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/temas';
+
+// Get topics by ficha
+export const getTemasConversacionByFicha = async (idFicha) => {
+  const response = await axios.get(`${API_URL}?IdFicha=${idFicha}`);
+  return response.data;
+};
+
+// Create topic
+export const createTemaConversacion = async (tema) => {
+  const response = await axios.post(API_URL, tema);
+  return response.data;
+};
+
+// Update topic
+export const updateTemaConversacion = async (id, tema) => {
+  const response = await axios.put(`${API_URL}/${id}`, tema);
+  return response.data;
+};
+
+// Delete topic
+export const deleteTemaConversacion = async (id) => {
+  await axios.delete(`${API_URL}/${id}`);
+};
+```
+
+## Multi-Step Navigation
+
+The ficha system uses a step-by-step navigation component at **source/src/components/FichaPaciente/fichastepsNav.jsx:1**:
+
+```
+1. Ficha (Basic Information)
+2. Medicamentos (Medications)
+3. Alergias (Allergies)
+4. Intereses (Interests)
+5. Temas (Conversation Topics)
+```
+
+After creating or updating the main ficha, users are redirected:
+
+```javascript
+navigate(`/fichas/${id_ficha_paciente}/medicamentos`);
+```
+
+## Usage Example
+
+<Steps>
+  <Step title="Create Ficha">
+    ```javascript
+    import { createFicha } from './servicios/ficha';
+    
+    const nuevaFicha = {
+      diagnostico_me_actual: 'Hipertensión arterial',
+      condiciones_fisicas: 'Movilidad reducida',
+      estado_animo: 'normal',
+      caidas: 'media',
+      tipo_dieta: 'hiposodica',
+      alimentacion_asistida: 'No requiere',
+      hora_levantarse: '07:00',
+      hora_acostarse: '21:00',
+      frecuencia_siestas: '1 vez después del almuerzo',
+      frecuencia_baño: 'Interdiario',
+      rutina_medica: 'Control de presión cada 8 horas',
+      usapanal: false,
+      acompañado: true,
+      observaciones: 'Requiere asistencia para caminar',
+      fecha_registro: '2024-03-15',
+      paciente: { id_paciente: 123 }
+    };
+    
+    const ficha = await createFicha(nuevaFicha);
+    ```
+  </Step>
+  
+  <Step title="Add Medications">
+    ```javascript
+    import { createMedicamento } from './servicios/medicacionService';
+    
+    const medicamento = {
+      nombre_medicamento: 'Enalapril',
+      dosis: '10mg',
+      frecuencia: 'Cada 12 horas',
+      via_administracion: 'Oral',
+      observaciones: 'Tomar con alimentos',
+      ficha_paciente: { id_ficha_paciente: ficha.id_ficha_paciente }
+    };
+    
+    await createMedicamento(medicamento);
+    ```
+  </Step>
+  
+  <Step title="Add Allergies">
+    ```javascript
+    import { createAlergia } from './servicios/alergiasService';
+    
+    const alergia = {
+      tipo_alergia: 'Medicamento',
+      nombre_alergia: 'Penicilina',
+      severidad: 'Alta',
+      reaccion: 'Urticaria y dificultad respiratoria',
+      ficha_paciente: { id_ficha_paciente: ficha.id_ficha_paciente }
+    };
+    
+    await createAlergia(alergia);
+    ```
+  </Step>
+</Steps>
+
+## Toast Notifications
+
+The component uses react-toastify for user feedback:
+
+```javascript
+import { toast } from 'react-toastify';
+
+toast.success('Ficha creada exitosamente');
+toast.error('Error al guardar la ficha');
+toast.warning('Estás editando una ficha existente');
+toast.info('Cargando información de la ficha...');
+```
+
+<Info>
+  All ficha-related forms implement real-time validation to ensure data quality before submission.
+</Info>
+
+<Warning>
+  The 30-minute edit window and other time-based validations ensure data integrity but may require adjustment based on user workflows.
+</Warning>

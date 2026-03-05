@@ -1,0 +1,304 @@
+---
+title: 'Contratante Module Overview'
+description: 'Architecture and routing for the employer module'
+---
+
+# Contratante Module Overview
+
+The **ModuloContratante** component serves as the main container for employer (contratante) functionality in the CALMA platform.
+
+## Component Location
+
+`src/components/ModuloContratante/moduloContratante.jsx`
+
+## Component Structure
+
+```javascript
+const ModuloContratante = () => {
+  const [contratanteId, setUserId] = useState(null);
+  const [publicacionEditar, setPublicacionEditar] = useState(null);
+  const [showPanelUsuarios, setShowPanelUsuarios] = useState(false);
+  const [showPanelNotificaciones, setShowPanelNotificaciones] = useState(false);
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [cantidadNoLeidas, setCantidadNoLeidas] = useState(0);
+  const [datosUsuarioActual, setDatosUsuarioActual] = useState(null);
+}
+```
+
+## State Management
+
+| State | Type | Purpose |
+|-------|------|--------|
+| `contratanteId` | number/null | Current employer ID |
+| `publicacionEditar` | object/null | Job posting being edited |
+| `showPanelUsuarios` | boolean | User search panel visibility |
+| `showPanelNotificaciones` | boolean | Notifications panel visibility |
+| `notificaciones` | array | List of notifications |
+| `cantidadNoLeidas` | number | Count of unread notifications |
+| `datosUsuarioActual` | object/null | Current user data for chat |
+
+## User Identification
+
+```javascript
+useEffect(() => {
+  let contratistaId = null;
+  
+  if (location.state?.userId) {
+    contratistaId = location.state.userId;
+  } else {
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    if (userData?.contratanteId) {
+      contratistaId = userData.contratanteId;
+    }
+  }
+  
+  setUserId(contratistaId);
+  
+  if (contratistaId) {
+    cargarDatosUsuarioActual(contratistaId);
+  }
+}, [location.state]);
+```
+
+## Notifications System
+
+### Fetch Unread Notifications
+
+```javascript
+useEffect(() => {
+  const fetchNoLeidas = async () => {
+    if (!contratanteId) return;
+
+    try {
+      const endpoint = `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/noleidas/${contratanteId}`;
+      const res = await axios.get(endpoint);
+      setCantidadNoLeidas(res.data.length);
+    } catch (error) {
+      console.error("Error al cargar notificaciones:", error);
+    }
+  };
+
+  fetchNoLeidas();
+  
+  // Dynamic intervals
+  const intervalo = usuarioChat ? 3000 : 30000; // 3s if chat active, 30s otherwise
+  const interval = setInterval(fetchNoLeidas, intervalo);
+  
+  return () => clearInterval(interval);
+}, [contratanteId, usuarioChat]);
+```
+
+### Notification Types
+
+```javascript
+const getNotificationType = (descripcion) => {
+  const desc = descripcion.toLowerCase();
+  
+  if (desc.includes('💬') || desc.includes('nuevo mensaje')) {
+    return 'info';
+  }
+  if (desc.includes('aceptada') || desc.includes('felicitaciones')) {
+    return 'success';
+  }
+  if (desc.includes('rechazada') || desc.includes('lamentamos')) {
+    return 'warning';
+  }
+  
+  return 'info';
+};
+```
+
+### Notification Icons
+
+```javascript
+const getNotificationIcon = (descripcion) => {
+  const desc = descripcion.toLowerCase();
+  
+  if (desc.includes('💬') || desc.includes('nuevo mensaje')) return '💬';
+  if (desc.includes('postulación')) return '👤';
+  if (desc.includes('trabajo completado')) return '✅';
+  
+  return 'ℹ️';
+};
+```
+
+## Chat Integration
+
+### Load Chat-Eligible Aspirants
+
+```javascript
+const handleAbrirPanelUsuarios = async () => {
+  setShowPanelUsuarios(true);
+  
+  try {
+    const response = await axios.get(
+      `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/postulacion/contratista/${contratanteId}/aspirantes-para-chat`
+    );
+    setUsuariosEncontrados(response.data);
+  } catch (error) {
+    setUsuariosEncontrados([]);
+  }
+};
+```
+
+### Chat Component Integration
+
+```jsx
+import App from '../../App'; // WebSocket chat component
+
+{usuarioChat && (
+  <div className="chat-flotante">
+    <App
+      nombrePropio={JSON.parse(localStorage.getItem('userData'))?.usuarioId}
+      destinatarioProp={usuarioChat.idUsuario}
+      onCerrarChat={handleCerrarChat}
+      datosDestinatario={usuarioChat}
+      nombreDestinatario={`${usuarioChat.nombres} ${usuarioChat.apellidos}`}
+      nombreUsuarioActual={datosUsuarioActual ? `${datosUsuarioActual.nombres} ${datosUsuarioActual.apellidos}` : 'Contratante'}
+    />
+  </div>
+)}
+```
+
+## Main Content Layout
+
+```jsx
+<div className="main-content" style={{
+  height: '90vh',
+  padding: '60px 40px',
+  background: 'linear-gradient(135deg, #ffffff 0%, #f0f8ff 50%, #e6f3ff 100%)',
+  fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+  maxWidth: '1400px',
+  margin: '20px auto',
+  borderRadius: '25px',
+  boxShadow: '0 25px 70px rgba(30, 58, 138, 0.15)',
+  overflowY: 'scroll'
+}}>
+  {/* Hero section */}
+  <h1>Área Exclusiva para Contratantes</h1>
+  
+  {/* Benefits section */}
+  <section>
+    <h2>Ventajas para tu empresa</h2>
+    {/* Benefits cards */}
+  </section>
+  
+  {/* Usage guide */}
+  <section>
+    <h2>¿Cómo usar CALMA para contratar mejor?</h2>
+    {/* Steps */}
+  </section>
+  
+  {/* Best practices */}
+  <section>
+    <h2>Buenas prácticas para contratantes</h2>
+    {/* Tips */}
+  </section>
+</div>
+```
+
+## Notifications Panel
+
+```jsx
+<div className={`${styles.panelNotificacionesContratante} ${showPanelNotificaciones ? styles.open : ''}`}>
+  <div className={styles.headerNotificacionesContratante}>
+    <div className={styles.tituloNotificacionesContratante}>Notificaciones</div>
+    <button onClick={handleCerrarNotificaciones}>✕</button>
+  </div>
+  
+  <ul className={styles.listaNotificacionesContratante}>
+    {notificaciones.map((noti) => {
+      const type = getNotificationType(noti.descripcion);
+      const icon = getNotificationIcon(noti.descripcion);
+      
+      return (
+        <li className={`${styles.itemNotificacionContratante} ${styles[type]}`}>
+          <div className={styles.iconoNotificacionContratante}>{icon}</div>
+          <div className={styles.textoNotificacionContratante}>
+            <strong>{noti.descripcion}</strong>
+            <em>{getTimeAgo(noti.fecha)}</em>
+          </div>
+        </li>
+      );
+    })}
+  </ul>
+</div>
+```
+
+## User Search Panel
+
+```jsx
+<div className={`panel-usuarios ${showPanelUsuarios ? 'open' : ''}`}>
+  <div className="panel-usuarios-header">
+    <span>Buscar Usuarios</span>
+    <button onClick={handleCerrarPanelUsuarios}>✖</button>
+  </div>
+  
+  <input
+    type="text"
+    placeholder="Buscar por nombre o apellido..."
+    value={searchTerm}
+    onChange={(e) => handleBuscarUsuarios(e.target.value)}
+  />
+  
+  <ul className="lista-usuarios">
+    {usuariosEncontrados.map((usuario) => (
+      <li onClick={() => handleSeleccionarUsuarioChat(usuario)}>
+        <div className="user-avatar-placeholder">
+          {usuario.nombres ? usuario.nombres.charAt(0).toUpperCase() : 'A'}
+        </div>
+        <div>
+          <strong>{usuario.nombres} {usuario.apellidos}</strong>
+          <small>{usuario.correo}</small>
+          {usuario.trabajoTitulo && (
+            <div>💼 {usuario.trabajoTitulo}</div>
+          )}
+        </div>
+      </li>
+    ))}
+  </ul>
+</div>
+```
+
+## Routing
+
+From `main.jsx:201-212`:
+
+```javascript
+<Route path="/moduloContratante/*" element={<ModuloContratante />} />
+<Route path="/moduloContratante/perfilContratante" element={<PerfilContratante />} />
+<Route path="/postulaciones/:userId" element={<Postulaciones />} />
+<Route path="/detalles-trabajo/:idRealizar" element={<DetallesTrabajo />} />
+<Route path="/moduloContratante/formularioPublicacion" element={<FormularioPublicacion />} />
+<Route path="/moduloContratante/ListaPublicaciones" element={<ListaPublicaciones />} />
+```
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|--------|
+| `/api/usuarios/{id}` | GET | Fetch user data |
+| `/api/notificaciones/contratante/noleidas/{id}` | GET | Get unread notifications |
+| `/api/notificaciones/contratante/{id}` | GET | Get all notifications |
+| `/api/notificaciones/contratante/marcar-leidas/{id}` | PUT | Mark as read |
+| `/api/postulacion/contratista/{id}/aspirantes-para-chat` | GET | Get chat-eligible aspirants |
+
+## Styling
+
+CSS files:
+- `src/components/ModuloContratante/moduloContratante.css`
+- `src/components/ModuloContratante/NotificacionesContratante.module.css`
+
+## Child Components
+
+- **HeaderContratante** - Navigation with notifications and chat
+- **App** (Chat) - WebSocket-based messaging
+- **FormularioPublicacion** - Job posting creation/editing
+- **ListaPublicaciones** - Job postings list
+- **Postulaciones** - Applications management
+
+## Related Components
+
+- [Job Posting](/components/contratante/job-posting)
+- [Candidates](/components/contratante/candidates)
+- [Chat System](/components/shared/chat)

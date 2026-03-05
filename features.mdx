@@ -1,0 +1,773 @@
+---
+title: 'Platform Features'
+description: 'Complete overview of CALMA healthcare employment platform capabilities'
+icon: 'stars'
+---
+
+# Platform Features
+
+CALMA is a comprehensive healthcare employment platform designed specifically for connecting elderly care professionals (Aspirantes) with employers (Contratantes). This page covers all major features organized by user role and functionality.
+
+## Dual-Module Architecture
+
+CALMA operates with two distinct user experiences:
+
+<CardGroup cols={2}>
+  <Card title="Aspirante Module" icon="user" color="#3b82f6">
+    **For Job Seekers**
+    
+    Healthcare professionals looking for employment opportunities in elderly care.
+    
+    - Browse job listings
+    - Manage digital CV
+    - Apply to positions
+    - Track applications
+    - Communicate with employers
+  </Card>
+  
+  <Card title="Contratante Module" icon="briefcase" color="#10b981">
+    **For Employers**
+    
+    Families and healthcare facilities seeking qualified care professionals.
+    
+    - Post job opportunities
+    - Register patients
+    - Review applications
+    - Manage patient records
+    - Rate care professionals
+  </Card>
+</CardGroup>
+
+---
+
+## Core Features by Category
+
+### 📄 CV Management (Aspirantes)
+
+Comprehensive digital curriculum vitae system with multi-step creation:
+
+<Steps>
+  <Step title="Basic CV Information">
+    Primary CV form located at `/moduloAspirante/cv`:
+    
+    ```jsx src/components/ModuloAspirante/CV/cv.jsx
+    // Core CV fields managed through CVForm component
+    const [formulario, setFormulario] = useState({
+      estado: true,
+      experiencia: '',           // Work experience in elderly care
+      zona_trabajo: '',          // Preferred work zones
+      idiomas: '',               // Languages spoken
+      informacion_opcional: '',  // Additional information
+      fecha_solicitud: new Date().toISOString()
+    });
+    ```
+    
+    <Note>
+      The CV is **required** before accessing any Aspirante features. The `RequireCV` component enforces this requirement.
+    </Note>
+  </Step>
+
+  <Step title="Professional Certifications">
+    Add healthcare certifications at `/cv/:idCV/certificados`:
+    - Certificate title and issuing organization
+    - Issue date and expiration date
+    - Document upload support
+    - Multiple certifications per profile
+  </Step>
+
+  <Step title="Skills & Abilities">
+    Define your skillset at `/cv/:idCV/habilidades`:
+    - Medical care skills
+    - Personal care abilities
+    - Special needs experience
+    - Emergency response training
+  </Step>
+
+  <Step title="Recommendations">
+    Collect professional references at `/cv/:idCV/recomendaciones`:
+    - Reference contact information
+    - Professional relationship
+    - Recommendation text
+    - Verification status
+  </Step>
+
+  <Step title="Availability Schedule">
+    Set your working availability at `/cv/:idCV/disponibilidad`:
+    - Daily availability patterns
+    - Preferred shift times
+    - Weekend and holiday availability
+    - Start date preferences
+  </Step>
+</Steps>
+
+**CV Viewing Options:**
+- Complete view: `/ver-cv/:idCV` (public)
+- Aspirante edit view: `/cv/:idCV/edit`
+- Contratante applicant view: `/cv-aspirante/:idAspirante`
+- CV with ratings: Includes aggregated rating display from completed jobs
+
+---
+
+### 💼 Job Posting & Discovery
+
+#### For Aspirantes: Job Browsing
+
+The main job listing interface at `/moduloAspirante`:
+
+```jsx src/components/ModuloAspirante/ListaTrabajos/listaTrabajos.jsx
+// Browse available job opportunities
+// Filtered by location, requirements, and compensation
+```
+
+**Features:**
+- Real-time job listings with automatic updates
+- Detailed job descriptions with care requirements
+- Patient information preview (limited)
+- One-click application system
+- Save jobs for later consideration
+- Job recommendation based on CV match
+
+#### For Contratantes: Job Creation
+
+Publish job opportunities at `/moduloContratante/formularioPublicacion`:
+
+**Job Posting Fields:**
+- Job title and comprehensive description
+- Required skills and experience level
+- Work schedule (full-time, part-time, live-in)
+- Compensation and benefits
+- Work location and zone
+- Patient association (linked to patient records)
+- Special requirements or conditions
+
+**Job Management:**
+- View all your postings: `/moduloContratante/ListaPublicaciones`
+- Edit active job listings
+- Close positions when filled
+- Track application counts
+- Repost expired listings
+
+---
+
+### 📬 Application System
+
+#### Aspirante: Application Tracking
+
+Manage your job applications at `/moduloAspirante/postulaciones/:userId`:
+
+```jsx src/components/ModuloAspirante/PostulacionesAspirante/
+// Track application status through the hiring pipeline
+```
+
+**Application States:**
+1. **Pendiente** (Pending): Application submitted, awaiting review
+2. **Aceptada** (Accepted): Employer accepted your application
+3. **Rechazada** (Rejected): Application was not selected
+4. **En Proceso** (In Process): Interview or evaluation phase
+5. **Completada** (Completed): Job finished, eligible for rating
+
+**Application Features:**
+- Status change notifications
+- Timeline of application progress
+- Direct communication with employer
+- Access to patient details (when accepted)
+- Withdraw application option
+
+#### Contratante: Application Review
+
+Review applicants at `/postulaciones/:userId` and `/detalles-trabajo/:idRealizar`:
+
+```jsx src/components/ModuloContratante/Postulaciones/Postulaciones.jsx
+// Review candidate CVs and make hiring decisions
+```
+
+**Review Features:**
+- View complete candidate CVs
+- See applicant ratings from previous jobs
+- Review certifications and recommendations
+- Accept or reject applications
+- Request additional information
+- Schedule video interviews
+- Shortlist candidates for comparison
+
+---
+
+### 💬 Real-Time Chat System
+
+WebSocket-based messaging between Aspirantes and Contratantes:
+
+```jsx src/App.jsx
+// Chat component using STOMP.js over WebSocket
+function App({
+  nombrePropio = "1",           // Current user ID
+  destinatarioProp = "2",       // Recipient ID
+  nombreUsuarioActual = null,   // Current user display name
+  nombreDestinatario = null,    // Recipient display name
+  datosDestinatario = null      // Full recipient data object
+}) {
+  // WebSocket connection setup
+  const cliente = new Client({
+    brokerURL: "ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws",
+    reconnectDelay: 5000,
+    heartbeatIncoming: 4000,
+    heartbeatOutgoing: 4000,
+  });
+```
+
+**Chat Features:**
+- Real-time message delivery
+- Message history persistence
+- Read receipts and delivery status
+- Typing indicators
+- Connection status display
+- Automatic reconnection on disconnect
+- Message notifications when not actively in chat
+- Job context display (shows which position the conversation relates to)
+
+**Technical Implementation:**
+- STOMP protocol over WebSocket
+- Subscription to conversation channels: `/tema/conversacion/{userId1}-{userId2}`
+- Personal notifications: `/tema/notificacion/{userId}`
+- Messages sent to: `/app/envio`
+- Unique conversation channels based on sorted user IDs (prevents duplicate channels)
+
+**Chat Access:**
+- **Aspirantes**: Can chat with employers who accepted their application
+- **Contratantes**: Can chat with applicants they've accepted or shortlisted
+- Chat panel accessible from header in both modules
+- Search and filter conversation partners
+
+---
+
+### 📹 Video Call Integration
+
+WebRTC-based video interviewing system:
+
+```javascript src/videollamada.jsx
+// Video call setup with WebRTC
+const servers = {
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+};
+
+// Initialize camera and microphone
+navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+  .then((stream) => {
+    localVideo.srcObject = stream;
+    localStream = stream;
+    conectarWebSocket();
+  });
+```
+
+**Video Call Features:**
+- HD video and audio streaming
+- Camera and microphone controls
+- Screen sharing capability
+- Connection quality indicators
+- Call recording (with consent)
+- Scheduled call reminders
+- Call history and duration tracking
+
+**Signaling:**
+- STOMP WebSocket for call signaling
+- Offer/answer exchange for peer connection
+- ICE candidate exchange
+- User-specific signaling channels: `/usuario/{userId}/respuestas`
+
+**Access:**
+- Available at `/videollamada` (main React component)
+- Also `videollamada.html` (standalone HTML version)
+- Initiated from chat interface or application review
+- Requires camera/microphone permissions
+
+---
+
+### 🏥 Patient Record Management (Contratantes)
+
+Comprehensive patient information system:
+
+#### Patient Registration
+
+Register patients at `/moduloContratante/registropaciente`:
+
+**Patient Information:**
+- Personal details (name, age, gender)
+- Contact information
+- Address and location
+- Emergency contacts
+- Primary care physician
+- Insurance information
+
+#### Medical Records System
+
+Detailed patient health records at `/moduloContratante/ficha/:idPaciente`:
+
+<Tabs>
+  <Tab title="Medical History">
+    Create comprehensive medical records:
+    
+    ```jsx src/components/FichaPaciente/ficha.jsx
+    // Patient medical history form with step navigation
+    ```
+    
+    - Chronic conditions and diagnoses
+    - Past surgeries and hospitalizations
+    - Current health status
+    - Mobility and functional abilities
+    - Cognitive assessment
+    - Behavioral notes
+  </Tab>
+  
+  <Tab title="Medications">
+    Track all patient medications at `/fichas/:id_ficha_paciente/medicamentos`:
+    
+    ```jsx src/components/FichaPacienteMedicamentos/medicacionform.jsx
+    // Medication management form
+    ```
+    
+    - Medication name and dosage
+    - Administration schedule
+    - Route and frequency
+    - Start and end dates
+    - Prescribing physician
+    - Special instructions
+  </Tab>
+  
+  <Tab title="Allergies">
+    Document allergies to prevent adverse reactions:
+    
+    **Food Allergies** (`/fichas/:id/alergias-alimentarias`):
+    - Allergen identification
+    - Reaction severity
+    - Symptoms and history
+    - Alternative dietary options
+    
+    **Medication Allergies** (`/fichas/:id/alergias-medicamentos`):
+    - Drug name and class
+    - Reaction type and severity
+    - Date of reaction
+    - Alternative medications
+  </Tab>
+  
+  <Tab title="Personal Care">
+    **Interests & Hobbies** (`/fichas/:id/intereses`):
+    - Personal interests for engagement
+    - Hobbies and activities
+    - Social preferences
+    - Entertainment preferences
+    
+    **Conversation Topics** (`/fichas/:id/temas`):
+    - Preferred discussion topics
+    - Topics to avoid
+    - Memory prompts
+    - Communication preferences
+  </Tab>
+</Tabs>
+
+**Patient Record Features:**
+- Multi-step form with progress tracking (via `CVStepsNav` pattern)
+- Attachments and document uploads
+- Edit history and change tracking
+- Print-friendly medical summaries
+- Share with accepted care workers (view-only)
+- Privacy controls and access restrictions
+
+#### Patient Record Sharing
+
+When an Aspirante's application is accepted:
+- They gain **read-only** access to patient medical records
+- Accessible at `/moduloAspirante/ficha-paciente/:idPaciente`
+- View at `/verfcihaaceptada` component
+- Includes all medical history except private notes
+
+---
+
+### ⭐ Rating & Review System
+
+Two-way rating system after job completion:
+
+#### Contratantes Rate Aspirantes
+
+Rate care workers at `/Calificacion/calificacion`:
+
+```jsx src/components/Calificacion/calificacion.jsx
+// Rating form for completed jobs
+```
+
+**Rating Categories:**
+- **Professionalism**: Punctuality, appearance, attitude
+- **Care Quality**: Attention to patient needs, compassion
+- **Communication**: With patient, family, and healthcare team
+- **Technical Skills**: Medical care competency
+- **Reliability**: Consistency and dependability
+
+**Rating Features:**
+- 1-5 star rating scale
+- Written review comments
+- Anonymous or public rating option
+- Dispute resolution process
+- Rating appears on Aspirante CV
+
+#### Aspirantes Rate Employers
+
+Provide feedback on completed positions:
+
+**Rating Categories:**
+- Work environment and conditions
+- Compensation and payment timeliness
+- Job description accuracy
+- Communication and support
+- Would work with them again?
+
+**Access Ratings:**
+- Aspirante ratings visible at: `/aspirante/:aspiranteId/calificaciones`
+- All ratings viewable: `/moduloAspirante/Calificaciones/TodasLasCalificaciones`
+- Ratings shown on CV: Component at `src/components/ModuloAspirante/CV/CalificacionesCV/`
+
+---
+
+### 🔔 Notification System
+
+Real-time notification delivery for both user types:
+
+#### Notification Types
+
+**For Aspirantes:**
+- New job posting matching your profile
+- Application status changes (accepted/rejected)
+- New messages from employers
+- Upcoming interview reminders
+- Rating received from employer
+- CV completion reminders
+
+**For Contratantes:**
+- New application received
+- Applicant message
+- Job posting expiring soon
+- Worker confirmed for position
+- Work completion notifications
+
+#### Notification Delivery
+
+```jsx src/components/ModuloAspirante/moduloAspirante.jsx
+// Notification system with badge counter
+```
+
+**Features:**
+- Real-time WebSocket delivery
+- Unread notification badge counter
+- Visual notification panel in header
+- Email notifications (for critical events)
+- Notification history and archive
+- Mark as read/unread
+- Notification preferences and filtering
+
+**Technical Details:**
+- Badge animation on new notifications (CSS class: `.badgeNotificacion.new`)
+- Auto-polling every 30 seconds (3 seconds when chat active)
+- Separate endpoints for Aspirantes and Contratantes:
+  - Aspirante: `/api/notificaciones/aspirante/:id`
+  - Contratante: `/api/notificaciones/contratante/:id`
+
+---
+
+### 🔐 Authentication & Authorization
+
+#### User Registration
+
+Register at `/registro` with role selection:
+
+```jsx src/components/Registro/registro.jsx
+// Registration form with role-based fields
+```
+
+**Registration Fields:**
+- Full name (nombres, apellidos)
+- Email address (becomes username)
+- Password (with strength requirements)
+- Phone number
+- ID card (cédula)
+- Role selection: Aspirante or Contratante
+- Terms and conditions acceptance
+
+#### Login System
+
+Authenticate at `/login`:
+
+```jsx src/components/Login/Login.jsx
+// Login with role-based routing
+```
+
+**Login Features:**
+- Email and password authentication
+- "Remember me" functionality
+- Automatic role detection and routing
+- Session persistence via localStorage
+- Password reset flow: `/reset-password`
+
+**Post-Login Routing:**
+- Aspirantes → `/moduloAspirante` (with CV check)
+- Contratantes → `/moduloContratante`
+- First-time users → Onboarding flow
+
+#### Route Protection
+
+**CV Requirement for Aspirantes:**
+
+```jsx src/components/ModuloAspirante/CV/RequireCV.jsx
+// Route guard requiring CV completion
+```
+
+All Aspirante routes wrapped in `<RequireCV>` component:
+- Checks if user has created CV
+- Redirects to CV creation if not found
+- Prevents access to features without CV
+- Shows CV completion progress
+
+---
+
+### 🏗️ User Interface Components
+
+#### Shared Components
+
+**Navigation Headers:**
+- `HeaderAspirante`: Job seeker navigation with notifications, chat, and profile
+- `HeaderContratante`: Employer navigation with applicant search and job management
+
+**Common UI Patterns:**
+- Toast notifications (react-toastify)
+- Loading spinners and skeleton screens
+- Modal dialogs for confirmations
+- Responsive card layouts
+- Form validation with real-time feedback
+
+#### Landing Pages
+
+**Public Marketing Pages:**
+- `/` - Homepage (Inicio component)
+- `/solution` - Platform solutions
+- `/services` - Service offerings  
+- `/about` - About CALMA (SobreNosotros)
+- `/empleo` - Employment information
+- `/contact` - Contact form (Contacto)
+- `/politicas-de-privacidad` - Privacy policy
+
+---
+
+## Advanced Features
+
+### Work Completion Tracking
+
+Track accepted jobs through completion:
+
+**For Contratantes:**
+- View accepted workers: `/trabajos-aceptados`
+- Mark work as started/in-progress/completed
+- Log hours worked
+- Payment tracking
+- Issue completion certificates
+
+**For Aspirantes:**
+- Current work status dashboard
+- Work hour logging
+- Payment status tracking
+- Request early completion or extension
+
+### Search and Discovery
+
+**Job Search (Aspirantes):**
+- Filter by location, compensation, and schedule
+- Search by keywords in job description
+- Sort by date posted, relevance, or distance
+- Save searches for notifications
+
+**Candidate Search (Contratantes):**
+- Search applicants by name and email
+- Filter by skills, experience, and ratings
+- Advanced CV search
+- Applicant availability matching
+
+### Analytics and Insights
+
+**For Aspirantes:**
+- Application success rate
+- Profile view count
+- Most viewed CV sections
+- Rating trends over time
+
+**For Contratantes:**
+- Job posting performance
+- Time to fill positions
+- Applicant quality metrics
+- Worker retention rates
+
+---
+
+## Technical Features
+
+### State Management
+
+CALMA uses React hooks for state management:
+- `useState` and `useEffect` for local component state
+- `useContext` potential for global state (not currently implemented)
+- `localStorage` for authentication persistence
+- `sessionStorage` for temporary UI state
+
+### API Integration
+
+All API calls organized in service files (`src/servicios/`):
+
+<CodeGroup>
+```javascript src/servicios/cvService.js
+// CV-related API calls
+export const createCV = async (cvData, aspiranteId) => { ... }
+export const getCVById = async (idCV) => { ... }
+export const updateCV = async (idCV, cvData) => { ... }
+export const getCVByAspiranteId = async (aspiranteId) => { ... }
+export const checkIfAspiranteHasCV = async (aspiranteId) => { ... }
+```
+
+```javascript API Service Pattern
+// Consistent axios-based API service pattern
+import axios from 'axios';
+
+const BASE_URL = 'http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090';
+
+export const serviceMethod = async (params) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/endpoint`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Service error:', error);
+    throw error;
+  }
+};
+```
+</CodeGroup>
+
+**Available Services:**
+- `cvService.js` - CV operations
+- `certificadosService.js` - Certifications
+- `habilidadesService.js` - Skills
+- `disponibilidadService.js` - Availability
+- `recomendacionesService.js` - Recommendations
+- `calificacionService.js` - Ratings
+- `paciente.js` - Patient management
+- `ficha.js` - Medical records
+- `LoginService.js` - Authentication
+- And more...
+
+### WebSocket Architecture
+
+**STOMP over WebSocket:**
+```javascript
+import { Client } from '@stomp/stompjs';
+
+// Client setup
+const client = new Client({
+  brokerURL: 'ws://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/ws',
+  reconnectDelay: 5000,
+  heartbeatIncoming: 4000,
+  heartbeatOutgoing: 4000
+});
+
+// Subscribe to topics
+client.subscribe('/tema/conversacion/1-2', callback);
+client.subscribe('/tema/notificacion/1', callback);
+
+// Publish messages
+client.publish({
+  destination: '/app/envio',
+  body: JSON.stringify(messageData)
+});
+```
+
+### Responsive Design
+
+Mobile-first responsive layouts:
+- CSS modules for component-scoped styles
+- Bootstrap 5.3.3 for grid system
+- Custom CSS with media queries
+- Mobile navigation patterns
+- Touch-friendly UI elements
+
+---
+
+## Feature Summary Matrix
+
+| Feature | Aspirante | Contratante | Guest |
+|---------|-----------|-------------|-------|
+| View Job Listings | ✅ | ❌ | ❌ |
+| Create/Edit CV | ✅ | ❌ | ❌ |
+| Apply to Jobs | ✅ | ❌ | ❌ |
+| Post Jobs | ❌ | ✅ | ❌ |
+| Register Patients | ❌ | ✅ | ❌ |
+| Manage Medical Records | ❌ | ✅ | ❌ |
+| View Patient Records | ✅* | ✅ | ❌ |
+| Chat Messaging | ✅ | ✅ | ❌ |
+| Video Calls | ✅ | ✅ | ❌ |
+| Rate Users | ✅ | ✅ | ❌ |
+| View Public CVs | ✅ | ✅ | ✅ |
+| Receive Notifications | ✅ | ✅ | ❌ |
+| Browse Landing Pages | ✅ | ✅ | ✅ |
+
+*Only for accepted positions
+
+---
+
+## Browser Compatibility
+
+CALMA is tested and supported on:
+
+- Chrome/Edge 90+
+- Firefox 88+
+- Safari 14+
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+**Requirements:**
+- JavaScript enabled
+- WebSocket support
+- LocalStorage enabled
+- Camera/microphone for video calls
+
+---
+
+## Accessibility
+
+CALMA includes accessibility features:
+- Semantic HTML structure
+- ARIA labels on interactive elements
+- Keyboard navigation support
+- Screen reader compatible
+- High contrast mode support
+- Configurable font sizes
+
+<Tip>
+  For the best experience using assistive technologies, we recommend using the latest versions of NVDA, JAWS, or VoiceOver.
+</Tip>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Job Seekers Guide" icon="user" href="/guides/job-seekers">
+    Learn how to use CALMA as a healthcare professional
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Complete API endpoint documentation and integration examples
+  </Card>
+  
+  <Card title="Components" icon="puzzle-piece" href="/components/aspirante/overview">
+    Detailed documentation of all React components
+  </Card>
+  
+  <Card title="Employers Guide" icon="building" href="/guides/employers">
+    Learn how to use CALMA to find qualified candidates
+  </Card>
+</CardGroup>

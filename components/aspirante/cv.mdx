@@ -1,0 +1,287 @@
+---
+title: 'CV Management'
+description: 'CV form component for aspirant profile creation'
+---
+
+# CV Form Component
+
+The **CVForm** component manages the creation and editing of aspirant CV profiles for elderly care positions.
+
+## Component Location
+
+`src/components/ModuloAspirante/CV/cv.jsx`
+
+## Component Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `editMode` | boolean | `false` | Determines if form is in edit mode |
+
+## State Structure
+
+```javascript
+const [formulario, setFormulario] = useState({
+  estado: true,
+  experiencia: '',
+  zona_trabajo: '',
+  idiomas: '',
+  informacion_opcional: '',
+  fecha_solicitud: new Date().toISOString()
+});
+
+const [isEditing, setIsEditing] = useState(false);
+const [isLoading, setIsLoading] = useState(false);
+const [isSubmitting, setIsSubmitting] = useState(false);
+```
+
+## Form Fields
+
+### Required Fields
+
+1. **experiencia** (text)
+   - Label: "Experiencia en Cuidado de Adultos Mayores"
+   - Placeholder: "Ej: 3 años cuidando adultos con demencia y movilidad reducida"
+   - Icon: `FaUserMd`
+
+2. **zona_trabajo** (text)
+   - Label: "Zona de Cobertura y Disponibilidad"
+   - Placeholder: "Ej: Norte de Guayaquil, disponible fines de semana y noches"
+   - Icon: `FaGlobe`
+
+3. **idiomas** (text)
+   - Label: "Idiomas y Nivel de Comunicación"
+   - Placeholder: "Ej: Español (nativo), Inglés (básico), experiencia con personas con dificultades auditivas"
+   - Icon: `FaLanguage`
+
+### Optional Fields
+
+4. **informacion_opcional** (text)
+   - Label: "Certificaciones y Habilidades Especiales"
+   - Placeholder: "Ej: Certificado en primeros auxilios, manejo de medicamentos, fisioterapia básica"
+   - Icon: `FaEdit`
+
+## Routing Logic
+
+### URL Parameters
+
+```javascript
+const { idCV } = useParams();
+const location = useLocation();
+const userData = JSON.parse(localStorage.getItem("userData"));
+const aspiranteId = userData?.aspiranteId;
+```
+
+### Route Scenarios
+
+| URL | Behavior |
+|-----|----------|
+| `/cv/new` | Create new CV |
+| `/cv/{idCV}/edit` | Edit existing CV |
+| `/cv/{idCV}` | View CV (non-editable) |
+
+### Navigation Flow
+
+```javascript
+useEffect(() => {
+  if (idCV === "new") {
+    const tieneCV = await checkIfAspiranteHasCV(aspiranteId);
+    if (tieneCV) {
+      // Redirect to edit existing CV
+      const cvExistente = await getCVByAspiranteId(aspiranteId);
+      navigate(`/cv/${cvExistente.id_cv}/edit`, { replace: true });
+    }
+  }
+}, [idCV, navigate]);
+```
+
+## API Integration
+
+### Services
+
+Imported from `src/servicios/cvService`:
+
+```javascript
+import {
+  createCV,
+  getCVById,
+  updateCV,
+  getCVByAspiranteId,
+  checkIfAspiranteHasCV
+} from "../../../servicios/cvService";
+```
+
+### Endpoints
+
+| Function | HTTP Method | Purpose |
+|----------|------------|--------|
+| `createCV(data)` | POST | Create new CV |
+| `getCVById(id)` | GET | Fetch CV by ID |
+| `updateCV(id, data)` | PUT | Update existing CV |
+| `getCVByAspiranteId(id)` | GET | Get CV by aspirante |
+| `checkIfAspiranteHasCV(id)` | GET | Check CV existence |
+
+## Form Submission
+
+```javascript
+const manejarEnvio = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+
+  // Validation
+  const camposRequeridos = {
+    experiencia: formulario.experiencia?.trim(),
+    zona_trabajo: formulario.zona_trabajo?.trim(),
+    idiomas: formulario.idiomas?.trim()
+  };
+
+  const camposFaltantes = Object.entries(camposRequeridos)
+    .filter(([_, value]) => !value)
+    .map(([key]) => translateFieldName(key));
+
+  if (camposFaltantes.length > 0) {
+    toast.error(`Faltan campos requeridos: ${camposFaltantes.join(', ')}`);
+    return;
+  }
+
+  const datosCV = {
+    ...formulario,
+    aspirante: { idAspirante: aspiranteId },
+  };
+
+  let respuesta;
+  if (isEditing) {
+    respuesta = await updateCV(idCV, datosCV);
+  } else {
+    respuesta = await createCV(datosCV);
+  }
+
+  // Navigate to next step
+  navigate(`/cv/${respuesta.id_cv}/recomendaciones`);
+};
+```
+
+## CV Steps Navigation
+
+Integrated with `CVStepsNav` component:
+
+```jsx
+<CVStepsNav idCV={idCV} currentStep="CV" />
+```
+
+### Step Flow
+
+1. **CV** (current) - Basic profile information
+2. **Recomendaciones** - References
+3. **Certificados** - Certifications
+4. **Habilidades** - Skills
+5. **Disponibilidad** - Availability
+
+## Validation Rules
+
+```javascript
+const camposRequeridos = {
+  experiencia: formulario.experiencia?.trim(),
+  zona_trabajo: formulario.zona_trabajo?.trim(),
+  idiomas: formulario.idiomas?.trim()
+};
+
+if (camposFaltantes.length > 0) {
+  toast.error(`Faltan campos requeridos: ${camposFaltantes.join(', ')}`);
+  setIsSubmitting(false);
+  return;
+}
+```
+
+## Toast Notifications
+
+```javascript
+import { toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
+
+toast.success(
+  <div className={styles["cv-toast"]}>
+    <div>Perfil de cuidador {isEditing ? 'actualizado' : 'creado'} correctamente</div>
+  </div>,
+  {
+    position: "top-right",
+    autoClose: 3000,
+    hideProgressBar: false,
+    closeButton: false,
+  }
+);
+```
+
+## Styling
+
+CSS Module: `src/components/ModuloAspirante/CV/CVForm.module.css`
+
+Key classes:
+- `.cv-pagina` - Page container
+- `.cv-contenedor` - Form container
+- `.cv-tarjeta` - Card wrapper
+- `.cv-formulario` - Form element
+- `.cv-grupo-input` - Input group
+- `.cv-boton-enviar` - Submit button
+- `.cv-spinner` - Loading spinner
+
+## Usage in Routes
+
+From `main.jsx:121-123`:
+
+```javascript
+<Route path="/moduloAspirante/cv" element={<CVForm />} />
+<Route path="/cv/:idCV" element={<CVForm editMode={false} />} />
+<Route path="/cv/:idCV/edit" element={<CVForm editMode={true} />} />
+```
+
+## Related Components
+
+- [CVStepsNav](/components/aspirante/cv#cvstepsnav) - Navigation stepper
+- [RequireCV](/components/shared/forms#requirecv) - Route protection
+- [Certificados](/components/aspirante/cv#certificados) - Next step in flow
+
+## Icons Used
+
+From `react-icons/fa`:
+
+```javascript
+import {
+  FaEdit,
+  FaGlobe,
+  FaLanguage,
+  FaInfoCircle,
+  FaUserMd
+} from "react-icons/fa";
+```
+
+## Error Handling
+
+```javascript
+try {
+  // CV creation/update
+} catch (error) {
+  console.error("Error al guardar perfil:", error);
+  
+  if (error.response?.status === 400) {
+    const errorBackend = error.response.data?.error || 'Datos inválidos';
+    toast.error(errorBackend);
+  } else {
+    toast.error(error.message || 'Error al guardar el perfil');
+  }
+}
+```
+
+## Loading States
+
+```jsx
+if (isLoading) {
+  return (
+    <div className={styles["cv-pagina"]}>
+      <div className={styles["cv-contenedor"]}>
+        <div className={styles["cv-spinner"]}></div>
+        <h2>Cargando perfil de cuidador...</h2>
+      </div>
+    </div>
+  );
+}
+```

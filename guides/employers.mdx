@@ -1,0 +1,755 @@
+---
+title: 'Employers Guide'
+description: 'Complete guide for employers using CALMA to find and hire healthcare professionals'
+icon: 'building'
+---
+
+## Overview
+
+Welcome to the employer side of CALMA, the healthcare employment platform that connects your organization with qualified, vetted professionals. As a **contratante** (employer), you have access to powerful recruitment tools to post jobs, manage applications, and communicate with candidates.
+
+<Note>
+CALMA helps you find the right talent for healthcare positions while maintaining professionalism and confidentiality throughout the hiring process.
+</Note>
+
+---
+
+## Getting Started as an Employer
+
+### Creating Your Employer Account
+
+Before you can post jobs and review candidates, you'll need to register as a contratante in the system.
+
+<Steps>
+  <Step title="Navigate to Registration">
+    Visit the registration page and select the **Contratante** (Employer) role.
+  </Step>
+  
+  <Step title="Provide Business Information">
+    Fill in your organization details:
+    - Company name (nombreEmpresa)
+    - Your name (nombres and apellidos)
+    - Business email (correo)
+    - Password (secure authentication)
+    - National ID (cédula)
+    - Phone number (telefono)
+  </Step>
+  
+  <Step title="Complete Registration">
+    After successful registration, you'll receive a `contratanteId` that serves as your unique identifier throughout the platform.
+  </Step>
+</Steps>
+
+### First Login
+
+When you log in, the system authenticates your credentials and routes you to the employer dashboard:
+
+```javascript
+// From Login.jsx:66-73
+if (data.rol === 'contratante') {
+  navigate('/moduloContratante', {
+    state: { userId: data.contratanteId },
+    replace: true
+  });
+}
+```
+
+<Info>
+Your employer dashboard provides a comprehensive view of your hiring activities, candidate communications, and job postings.
+</Info>
+
+---
+
+## The Employer Dashboard
+
+### Overview and Statistics
+
+The `ModuloContratante` component serves as your command center:
+
+```javascript
+// From moduloContratante.jsx:306-313
+return (
+  <div className="modulo-contratante">
+    <HeaderContratante
+      userId={contratanteId}
+      onOpenMensajes={handleAbrirPanelUsuarios}
+      onOpenNotificaciones={handleAbrirNotificaciones}
+      notificacionesNoLeidas={cantidadNoLeidas}
+    />
+  </div>
+);
+```
+
+<CardGroup cols={3}>
+  <Card title="10K+ Professionals" icon="users">
+    Active candidates
+  </Card>
+  
+  <Card title="500+ Companies" icon="briefcase">
+    Trust CALMA
+  </Card>
+  
+  <Card title="95% Success Rate" icon="chart-line">
+    In placements
+  </Card>
+</CardGroup>
+
+### Dashboard Features
+
+<Tabs>
+  <Tab title="Job Management">
+    - Create and publish job postings
+    - Edit existing opportunities
+    - Close or extend application deadlines
+    - View application statistics
+  </Tab>
+  
+  <Tab title="Candidate Review">
+    - Browse applicant profiles
+    - Review CVs and qualifications
+    - Filter by skills and experience
+    - Accept or reject applications
+  </Tab>
+  
+  <Tab title="Communication">
+    - Real-time chat with candidates
+    - Notification management
+    - Interview scheduling
+    - Direct messaging
+  </Tab>
+  
+  <Tab title="Patient Records">
+    - Register patient information
+    - Track care assignments
+    - Monitor service delivery
+    - Manage patient-caregiver relationships
+  </Tab>
+</Tabs>
+
+---
+
+## Posting Job Opportunities
+
+### Creating a Job Posting
+
+Job postings (publicaciones de empleo) are the foundation of your recruitment efforts in CALMA.
+
+<Steps>
+  <Step title="Access Job Creation">
+    Navigate to the job posting section in your dashboard.
+  </Step>
+  
+  <Step title="Fill in Job Details">
+    Provide comprehensive information about the position.
+  </Step>
+  
+  <Step title="Set Requirements">
+    Define the qualifications and skills needed.
+  </Step>
+  
+  <Step title="Publish">
+    Make your job visible to qualified candidates.
+  </Step>
+</Steps>
+
+### Job Posting Fields
+
+<AccordionGroup>
+  <Accordion title="Basic Information">
+    **Title** (titulo)
+    - Clear, descriptive job title
+    - Example: "Registered Nurse - ICU", "Home Health Aide"
+    
+    **Description** (descripcion)
+    - Detailed overview of the role
+    - Responsibilities and expectations
+    - Work environment details
+    
+    **Salary** (salario_estimado)
+    - Competitive compensation estimate
+    - Transparent pricing helps attract qualified candidates
+  </Accordion>
+  
+  <Accordion title="Work Schedule">
+    **Schedule Type** (jornada)
+    - Full-time (Tiempo Completo)
+    - Part-time (Medio Tiempo)
+    - By shift (Por Turnos)
+    - Flexible (Flexible)
+    
+    **Shift** (turno)
+    - Morning (Mañana)
+    - Afternoon (Tarde)
+    - Night (Noche)
+    - Rotating (Rotativo)
+    
+    **Immediate Availability** (disponibilidad_inmediata)
+    - `true` if you need someone to start right away
+    - `false` if there's flexibility on start date
+  </Accordion>
+  
+  <Accordion title="Requirements and Qualifications">
+    **Requirements** (requisitos)
+    - Educational requirements
+    - Certifications needed
+    - Years of experience
+    - Language proficiency
+    - Technical skills
+    
+    **Activities** (actividades_realizar)
+    - Specific duties and tasks
+    - Daily responsibilities
+    - Special procedures or protocols
+  </Accordion>
+  
+  <Accordion title="Timeline">
+    **Publication Date** (fechaPublicacion)
+    - Automatically set when you create the posting
+    
+    **Application Deadline** (fecha_limite)
+    - Last date to accept applications
+    - System shows formatted as: `YYYY-MM-DD`
+    - Example: "2025-04-15"
+  </Accordion>
+  
+  <Accordion title="Location">
+    **Geographic Information**
+    - Province (provincia)
+    - Canton
+    - Parish (parroquia)
+    
+    This helps candidates find jobs near them.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+The more detailed and transparent your job posting, the more qualified candidates you'll attract.
+</Tip>
+
+---
+
+## Managing Applications
+
+### Viewing Applicants
+
+When candidates apply for your jobs, you can review their complete profiles and CVs.
+
+<Card title="Applicant Information" icon="user-circle">
+  For each applicant, you can see:
+  - Complete CV with experience and education
+  - Skills and proficiency levels
+  - Professional certifications (with download option)
+  - Language capabilities
+  - Professional recommendations
+  - Previous ratings from other employers
+  - Contact information
+</Card>
+
+### Application Status Management
+
+You control the hiring pipeline by managing application statuses:
+
+<Steps>
+  <Step title="Review Applications">
+    Browse through submitted applications and review candidate qualifications.
+  </Step>
+  
+  <Step title="Accept or Reject">
+    Make decisions on which candidates to move forward with:
+    - **Accept** - Candidate moves to next stage, can communicate via chat
+    - **Reject** - Candidate is notified professionally
+  </Step>
+  
+  <Step title="Interview and Select">
+    Use the built-in communication tools to coordinate interviews and make your final selection.
+  </Step>
+  
+  <Step title="Complete Assignment">
+    Mark jobs as completed when the work is done.
+  </Step>
+</Steps>
+
+<Warning>
+Be prompt in reviewing applications. Delayed responses can result in losing quality candidates to other employers.
+</Warning>
+
+---
+
+## Communication with Candidates
+
+### Chat System
+
+CALMA provides a real-time messaging system for employer-candidate communication.
+
+#### Accessing Chat
+
+```javascript
+// From moduloContratante.jsx:207-224
+const handleAbrirPanelUsuarios = async () => {
+  setShowPanelUsuarios(true);
+  
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/postulacion/contratista/${contratanteId}/aspirantes-para-chat`
+  );
+  
+  setUsuariosEncontrados(response.data);
+};
+```
+
+<Info>
+You can only chat with candidates whose applications you've **accepted**. This ensures focused, relevant conversations.
+</Info>
+
+#### Chat Features
+
+<CardGroup cols={2}>
+  <Card title="Real-Time Messaging" icon="comment-dots">
+    - Instant message delivery via WebSocket
+    - Connection status indicator
+    - Message read receipts
+    - Message history preservation
+  </Card>
+  
+  <Card title="Candidate Context" icon="info-circle">
+    - See candidate name and details
+    - View associated job posting
+    - Access during conversation
+    - Streamlined communication
+  </Card>
+</CardGroup>
+
+#### Using the Chat Interface
+
+<Steps>
+  <Step title="Open Chat Panel">
+    Click the messages icon in your header to see your list of accepted candidates.
+  </Step>
+  
+  <Step title="Select a Candidate">
+    ```javascript
+    // From moduloContratante.jsx:266-271
+    const handleSeleccionarUsuarioChat = (usuario) => {
+      console.log('Selecting candidate for chat:', usuario);
+      console.log('Related job:', usuario.trabajoTitulo);
+      setUsuarioChat(usuario);
+    };
+    ```
+    
+    Click on a candidate to open the chat window.
+  </Step>
+  
+  <Step title="Communicate">
+    - Type your message (max 500 characters)
+    - Press Enter or click Send
+    - Receive real-time responses
+    - View conversation history
+  </Step>
+</Steps>
+
+### Searching for Candidates
+
+Use the search functionality to quickly find specific candidates:
+
+```javascript
+// From moduloContratante.jsx:232-263
+const handleBuscarUsuarios = async (term) => {
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/postulacion/contratista/${contratanteId}/aspirantes-para-chat`
+  );
+  
+  // Filter by search term
+  const usuariosFiltrados = response.data.filter(usuario => {
+    const nombreCompleto = `${usuario.nombres} ${usuario.apellidos}`.toLowerCase();
+    const correo = usuario.correo.toLowerCase();
+    const termino = term.toLowerCase();
+    
+    return nombreCompleto.includes(termino) || correo.includes(termino);
+  });
+};
+```
+
+<Tip>
+Search by candidate name or email to quickly locate specific applicants in your accepted list.
+</Tip>
+
+---
+
+## Notification Management
+
+### Receiving Notifications
+
+Stay informed about important events through the notification system:
+
+```javascript
+// From moduloContratante.jsx:160-192
+useEffect(() => {
+  const fetchNoLeidas = async () => {
+    const endpoint = `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/noleidas/${contratanteId}`;
+    const res = await axios.get(endpoint);
+    setCantidadNoLeidas(res.data.length);
+  };
+  
+  fetchNoLeidas();
+  const intervalo = usuarioChat ? 3000 : 30000; // 3s if chat active, 30s otherwise
+  const interval = setInterval(fetchNoLeidas, intervalo);
+}, [contratanteId]);
+```
+
+<Card title="Notification Types" icon="bell">
+  - **New Applications** (👤) - When candidates apply to your jobs
+  - **Job Completion** (✅) - When assignments are finished
+  - **New Messages** (💬) - When candidates send you messages
+  - **Rating Received** (⭐) - When candidates rate completed work
+  - **System Announcements** (ℹ️) - Platform updates and news
+</Card>
+
+### Notification Polling
+
+The system automatically checks for new notifications:
+- **Every 3 seconds** when you have an active chat open
+- **Every 30 seconds** during normal browsing
+
+<Info>
+Unread notifications are highlighted with a badge. Opening the notification panel automatically marks them as read.
+</Info>
+
+### Opening Notifications
+
+```javascript
+// From moduloContratante.jsx:277-300
+const handleAbrirNotificaciones = async () => {
+  // Mark all as read
+  await axios.put(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/marcar-leidas/${contratanteId}`
+  );
+  
+  // Fetch and sort notifications
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/notificaciones/contratante/${contratanteId}`
+  );
+  
+  // Most recent first
+  const notificacionesOrdenadas = response.data.sort((a, b) => {
+    return new Date(b.fecha) - new Date(a.fecha);
+  });
+  
+  setNotificaciones(notificacionesOrdenadas);
+};
+```
+
+---
+
+## Patient Record System
+
+For healthcare employers managing patient care, CALMA includes patient record management capabilities.
+
+<Warning>
+Patient information is highly sensitive. Always follow HIPAA guidelines and maintain strict confidentiality.
+</Warning>
+
+### Registering Patients
+
+The `RegistroPaciente` component allows you to:
+- Create patient profiles
+- Record medical information
+- Assign caregivers
+- Track care delivery
+- Manage patient-professional relationships
+
+<Card title="Patient Information" icon="hospital-user">
+  Typical patient records include:
+  - Personal identification
+  - Medical history
+  - Care requirements
+  - Assigned healthcare professional
+  - Service dates and times
+  - Progress notes
+</Card>
+
+---
+
+## Rating System
+
+### Rating Candidates
+
+After a job is completed, you can rate the candidate's performance. These ratings:
+
+<CardGroup cols={2}>
+  <Card title="Build Reputation" icon="award">
+    Help candidates build their professional reputation on the platform.
+  </Card>
+  
+  <Card title="Guide Others" icon="users">
+    Assist other employers in making informed hiring decisions.
+  </Card>
+</CardGroup>
+
+### Best Practices for Rating
+
+<AccordionGroup>
+  <Accordion title="Be Fair and Objective">
+    - Base ratings on actual performance
+    - Consider the full scope of work
+    - Account for challenges faced
+    - Separate personal feelings from professional assessment
+  </Accordion>
+  
+  <Accordion title="Provide Constructive Feedback">
+    - Highlight strengths
+    - Note areas for improvement
+    - Be specific with examples
+    - Maintain professional tone
+  </Accordion>
+  
+  <Accordion title="Rate Promptly">
+    - Submit ratings soon after job completion
+    - Details are fresh in memory
+    - Helps candidate move forward
+    - Maintains platform integrity
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices for Employers
+
+### Job Posting Excellence
+
+<Steps>
+  <Step title="Be Detailed and Specific">
+    - Clearly describe the role and responsibilities
+    - List all required qualifications
+    - Specify work schedule and compensation
+    - Include your organization's values and culture
+  </Step>
+  
+  <Step title="Set Realistic Requirements">
+    - Don't ask for more qualifications than necessary
+    - Balance ideal vs. required qualifications
+    - Consider training potential candidates
+    - Be open to diverse backgrounds
+  </Step>
+  
+  <Step title="Be Transparent About Compensation">
+    - Provide salary ranges
+    - Mention benefits and perks
+    - Clarify payment schedules
+    - Discuss growth opportunities
+  </Step>
+</Steps>
+
+### Candidate Management
+
+<Accordion title="Response Time">
+  - Review applications within 48-72 hours
+  - Respond to messages within 24 hours
+  - Provide status updates throughout the process
+  - Close job postings when filled
+</Accordion>
+
+<Accordion title="Professional Communication">
+  - Use respectful, professional language
+  - Be clear and concise in messaging
+  - Provide constructive rejection feedback
+  - Thank candidates for their interest
+</Accordion>
+
+<Accordion title="Interview Process">
+  - Schedule interviews promptly
+  - Prepare relevant questions
+  - Allow candidates to ask questions
+  - Provide clear next steps
+  - Follow up on commitments
+</Accordion>
+
+### Confidentiality and Privacy
+
+<Warning>
+**Critical**: Always maintain confidentiality when handling:
+- Candidate personal information
+- Medical certifications and licenses
+- Patient records
+- Internal company information
+</Warning>
+
+<Card title="Data Protection" icon="shield-alt">
+  - Access candidate data only when necessary
+  - Don't share information outside the platform
+  - Secure your account with a strong password
+  - Log out from shared computers
+  - Report suspicious activity immediately
+</Card>
+
+---
+
+## Platform Features
+
+### Advanced Tools
+
+<CardGroup cols={2}>
+  <Card title="Applicant Filtering" icon="filter">
+    - Filter by qualifications
+    - Sort by application date
+    - Search by skills
+    - Save favorite candidates
+  </Card>
+  
+  <Card title="Reporting & Analytics" icon="chart-bar">
+    - Application statistics
+    - Time-to-hire metrics
+    - Candidate source tracking
+    - Hiring success rates
+  </Card>
+  
+  <Card title="Bulk Operations" icon="tasks">
+    - Batch application reviews
+    - Mass messaging capabilities
+    - Export candidate data
+    - Generate reports
+  </Card>
+  
+  <Card title="Integration Support" icon="plug">
+    - API access for custom integrations
+    - Export to ATS systems
+    - Calendar synchronization
+    - Email notifications
+  </Card>
+</CardGroup>
+
+---
+
+## Technical Information
+
+### Session Management
+
+Your employer session is managed through:
+
+```javascript
+// From moduloContratante.jsx:101-125
+useEffect(() => {
+  let contratistaId = null;
+  
+  if (location.state?.userId) {
+    contratistaId = location.state.userId;
+  } else {
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    if (userData?.contratanteId) {
+      contratistaId = userData.contratanteId;
+    }
+  }
+  
+  setUserId(contratistaId);
+}, [location.state]);
+```
+
+<Info>
+The system stores your `contratanteId` in localStorage for persistent authentication across browser sessions.
+</Info>
+
+### Data Loading
+
+Employer data is loaded asynchronously:
+
+```javascript
+// From moduloContratante.jsx:127-159
+const cargarDatosUsuarioActual = async (contratistaId) => {
+  const response = await axios.get(
+    `http://backend-alb-283290471.us-east-2.elb.amazonaws.com:8090/api/usuarios/${contratistaId}`
+  );
+  
+  setDatosUsuarioActual({
+    nombres: response.data.nombres || 'Usuario',
+    apellidos: response.data.apellidos || 'Contratante',
+    correo: response.data.correo,
+    cedula: response.data.cedula,
+    telefono: response.data.telefono
+  });
+};
+```
+
+---
+
+## Support and Resources
+
+### Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Email Support" icon="envelope">
+    calmasoporte2025@gmail.com
+    
+    Response within 24-48 hours
+  </Card>
+  
+  <Card title="Help Center" icon="question-circle">
+    Access from your dashboard
+    
+    FAQs and tutorials
+  </Card>
+</CardGroup>
+
+### Additional Resources
+
+<Tabs>
+  <Tab title="Documentation">
+    - API documentation for integrations
+    - User guides and tutorials
+    - Video walkthroughs
+    - Best practice guides
+  </Tab>
+  
+  <Tab title="Community">
+    - Employer forums
+    - Success stories
+    - Networking opportunities
+    - Industry insights
+  </Tab>
+  
+  <Tab title="Training">
+    - Platform orientation sessions
+    - Advanced feature workshops
+    - Compliance training
+    - Hiring best practices
+  </Tab>
+</Tabs>
+
+---
+
+## Success Metrics
+
+<Card title="Track Your Hiring Success" icon="trophy">
+  Monitor these key metrics to optimize your recruitment:
+  
+  - **Time to hire** - Days from posting to acceptance
+  - **Application volume** - Number of applicants per posting
+  - **Quality of hire** - Performance ratings of hired candidates
+  - **Retention rate** - How long hires stay with your organization
+  - **Candidate satisfaction** - Feedback from the hiring process
+</Card>
+
+---
+
+## Quick Reference
+
+<CardGroup cols={3}>
+  <Card title="Dashboard" icon="home">
+    `/moduloContratante`
+    
+    Main employer hub
+  </Card>
+  
+  <Card title="Messages" icon="comments">
+    Chat with accepted candidates
+    
+    Real-time communication
+  </Card>
+  
+  <Card title="Notifications" icon="bell">
+    Stay updated
+    
+    Application alerts
+  </Card>
+</CardGroup>
+
+<Check>
+**Remember**: The key to successful hiring on CALMA is clear communication, prompt responses, and treating all candidates with respect and professionalism.
+</Check>
